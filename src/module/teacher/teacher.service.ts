@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import { Role } from "@prisma/client";
 import prisma from "../../lib/prisma.js";
-import type { CreateTeacherInput } from "./teacher.schema.js";
+import type { CreateTeacherInput, UpdateTeacherInput } from "./teacher.schema.js";
 
 export type TeacherDto = {
   id: string;
@@ -79,6 +79,129 @@ export async function createTeacher(input: CreateTeacherInput): Promise<TeacherD
   });
 
   return toTeacherDto(user);
+}
+
+export async function getTeacherById(id: string): Promise<TeacherDto> {
+  const teacherDetail = await prisma.teacherDetail.findUnique({
+    where: { id },
+    include: { user: true },
+  });
+
+  if (!teacherDetail) {
+    throw new TeacherError("Teacher not found", 404);
+  }
+
+  return toTeacherDto({
+    ...teacherDetail.user,
+    teacherDetail,
+  });
+}
+
+export async function updateTeacher(
+  id: string,
+  input: UpdateTeacherInput,
+): Promise<TeacherDto> {
+  const teacherDetail = await prisma.teacherDetail.findUnique({
+    where: { id },
+    include: { user: true },
+  });
+
+  if (!teacherDetail) {
+    throw new TeacherError("Teacher not found", 404);
+  }
+
+  if (input.email && input.email !== teacherDetail.user.email) {
+    const existingUser = await prisma.user.findUnique({
+      where: { email: input.email },
+    });
+
+    if (existingUser) {
+      throw new TeacherError("A user with this email already exists", 409);
+    }
+  }
+
+  if (
+    input.employeeId !== undefined &&
+    input.employeeId !== teacherDetail.employeeId
+  ) {
+    if (input.employeeId) {
+      const existingEmployee = await prisma.teacherDetail.findUnique({
+        where: { employeeId: input.employeeId },
+      });
+
+      if (existingEmployee && existingEmployee.id !== id) {
+        throw new TeacherError("A teacher with this employee ID already exists", 409);
+      }
+    }
+  }
+
+  const userData: {
+    name?: string;
+    email?: string;
+    password?: string;
+  } = {};
+
+  if (input.name !== undefined) {
+    userData.name = input.name;
+  }
+
+  if (input.email !== undefined) {
+    userData.email = input.email;
+  }
+
+  if (input.password) {
+    userData.password = await bcrypt.hash(input.password, 10);
+  }
+
+  const detailData: {
+    employeeId?: string | null;
+    phone?: string | null;
+  } = {};
+
+  if (input.employeeId !== undefined) {
+    detailData.employeeId = input.employeeId;
+  }
+
+  if (input.phone !== undefined) {
+    detailData.phone = input.phone;
+  }
+
+  const user = await prisma.user.update({
+    where: { id: teacherDetail.userId },
+    data: {
+      ...userData,
+      ...(Object.keys(detailData).length > 0
+        ? { teacherDetail: { update: detailData } }
+        : {}),
+    },
+    include: { teacherDetail: true },
+  });
+
+  return toTeacherDto(user);
+}
+
+export async function deleteTeacher(id: string): Promise<void> {
+  const teacherDetail = await prisma.teacherDetail.findUnique({
+    where: { id },
+    include: { classes: { select: { id: true } } },
+  });
+
+  if (!teacherDetail) {
+    throw new TeacherError("Teacher not found", 404);
+  }
+
+  if (teacherDetail.classes.length > 0) {
+    throw new TeacherError(
+      "Cannot delete teacher with assigned classes",
+      409,
+    );
+  }
+
+  await prisma.$transaction([
+    prisma.teacherAttendance.deleteMany({ where: { teacherId: id } }),
+    prisma.teacherDetail.delete({ where: { id } }),
+    prisma.user.delete({ where: { id: teacherDetail.userId } }),
+  ]);
 }
 
 export class TeacherError extends Error {
