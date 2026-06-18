@@ -1,0 +1,29 @@
+import { Role } from "@prisma/client";
+import { Router } from "express";
+import { authenticate } from "../../middleware/auth.middleware.js";
+import { requireRole } from "../../middleware/require-role.middleware.js";
+import {
+  attendanceErrorHandler,
+  declareHolidayHandler,
+  getRegisterHandler,
+  markAbsentHandler,
+  punchInHandler,
+  punchOutHandler,
+  removeHolidayHandler,
+  undoRecordHandler,
+} from "./attendance.controller.js";
+
+const attendanceRouter = Router();
+
+attendanceRouter.use(authenticate, requireRole(Role.ADMIN));
+
+attendanceRouter.get("/register", getRegisterHandler);
+attendanceRouter.post("/punch-in", punchInHandler);
+attendanceRouter.post("/punch-out", punchOutHandler);
+attendanceRouter.post("/mark-absent", markAbsentHandler);
+attendanceRouter.delete("/record", undoRecordHandler);
+attendanceRouter.post("/holidays", declareHolidayHandler);
+attendanceRouter.delete("/holidays/:date", removeHolidayHandler);
+attendanceRouter.use(attendanceErrorHandler);
+
+export default attendanceRouter;

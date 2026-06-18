@@ -20,6 +20,12 @@ enum Role {
   PARENT
 }
 
+enum AttendanceStatus {
+  IN_PROGRESS
+  PRESENT
+  ABSENT
+}
+
 model User {
   id            String         @id @default(auto()) @map("_id") @db.ObjectId
   name          String
@@ -74,8 +80,34 @@ model TeacherDetail {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  user    User    @relation(fields: [userId], references: [id])
-  classes Class[]
+  user         User                @relation(fields: [userId], references: [id])
+  classes      Class[]
+  attendances  TeacherAttendance[]
+}
+
+model TeacherAttendance {
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  teacherId String           @db.ObjectId
+  date      String
+  status    AttendanceStatus
+  punchIn   DateTime?
+  punchOut  DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  teacher TeacherDetail @relation(fields: [teacherId], references: [id])
+
+  @@unique([teacherId, date])
+  @@index([date])
+  @@index([teacherId])
+}
+
+model Holiday {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  date      String   @unique
+  label     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model AdminDetail {
