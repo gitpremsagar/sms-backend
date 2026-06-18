@@ -1,0 +1,102 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+  PARENT
+}
+
+model User {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  email         String         @unique
+  password      String
+  role          Role           @default(TEACHER)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  studentDetail StudentDetail?
+  teacherDetail TeacherDetail?
+  adminDetail   AdminDetail?
+  parentDetail  ParentDetail?
+
+  @@index([role])
+}
+
+model Class {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  className String   @unique
+  teacherId String   @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teacher  TeacherDetail   @relation(fields: [teacherId], references: [id])
+  students StudentDetail[]
+
+  @@index([teacherId])
+}
+
+model StudentDetail {
+  id                String         @id @default(auto()) @map("_id") @db.ObjectId
+  studentRollNumber String         @unique
+  userId            String         @unique @db.ObjectId
+  classId           String         @db.ObjectId
+  parentIds         String[]       @db.ObjectId
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  user    User           @relation(fields: [userId], references: [id])
+  class   Class          @relation(fields: [classId], references: [id])
+  parents ParentDetail[] @relation(fields: [parentIds], references: [id])
+
+  @@index([classId])
+}
+
+model TeacherDetail {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId String?  @unique
+  phone      String?
+  userId     String   @unique @db.ObjectId
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id])
+  classes Class[]
+}
+
+model AdminDetail {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  designation String?
+  userId      String   @unique @db.ObjectId
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model ParentDetail {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  phone       String?
+  address     String?
+  userId      String   @unique @db.ObjectId
+  childrenIds String[] @db.ObjectId
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user     User            @relation(fields: [userId], references: [id])
+  children StudentDetail[] @relation(fields: [childrenIds], references: [id])
+}
