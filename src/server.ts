@@ -4,6 +4,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import authRouter from "./module/auth/auth.routes.js";
 import { authErrorHandler } from "./module/auth/auth.controller.js";
+import teacherRouter from "./module/teacher/teacher.routes.js";
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.get("/", (_req, res) => {
 });
 
 app.use("/api/auth", authRouter);
+app.use("/api/teachers", teacherRouter);
 app.use(authErrorHandler);
 
 app.use(
