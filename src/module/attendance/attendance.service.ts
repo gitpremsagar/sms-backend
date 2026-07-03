@@ -155,11 +155,6 @@ export async function getRegister(year: number, month: number): Promise<Register
     getHolidayDatesForMonth(year, month),
   ]);
 
-  const records: Record<string, AttendanceRecordDto> = {};
-  for (const record of attendanceRecords) {
-    records[recordKey(record.teacherId, record.date)] = toRecordDto(record);
-  }
-
   const teachers = teachersRaw
     .filter((user) => user.teacherDetail)
     .map((user) => ({
@@ -170,6 +165,90 @@ export async function getRegister(year: number, month: number): Promise<Register
       workEndTime: user.teacherDetail!.workEndTime,
       halfDayThresholdTime: user.teacherDetail!.halfDayThresholdTime,
     }));
+
+  return buildRegisterDto({
+    teachers,
+    attendanceRecords,
+    holidayData,
+    year,
+    month,
+    daysInMonth,
+  });
+}
+
+export async function getRegisterForTeacher(
+  userId: string,
+  year: number,
+  month: number,
+): Promise<RegisterDto> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { teacherDetail: true },
+  });
+
+  if (!user?.teacherDetail) {
+    throw new AttendanceError("Teacher profile not found", 404);
+  }
+
+  const { startDate, endDate, daysInMonth } = getMonthDateRange(year, month);
+  const teacherDetail = user.teacherDetail;
+
+  const [attendanceRecords, holidayData] = await Promise.all([
+    prisma.teacherAttendance.findMany({
+      where: {
+        teacherId: teacherDetail.id,
+        date: { gte: startDate, lte: endDate },
+      },
+    }),
+    getHolidayDatesForMonth(year, month),
+  ]);
+
+  const teachers = [
+    {
+      id: teacherDetail.id,
+      name: user.name,
+      employeeId: teacherDetail.employeeId,
+      workStartTime: teacherDetail.workStartTime,
+      workEndTime: teacherDetail.workEndTime,
+      halfDayThresholdTime: teacherDetail.halfDayThresholdTime,
+    },
+  ];
+
+  return buildRegisterDto({
+    teachers,
+    attendanceRecords,
+    holidayData,
+    year,
+    month,
+    daysInMonth,
+  });
+}
+
+function buildRegisterDto({
+  teachers,
+  attendanceRecords,
+  holidayData,
+  year,
+  month,
+  daysInMonth,
+}: {
+  teachers: RegisterTeacherDto[];
+  attendanceRecords: {
+    teacherId: string;
+    date: string;
+    status: AttendanceStatus;
+    punchIn: Date | null;
+    punchOut: Date | null;
+  }[];
+  holidayData: { holidays: string[]; declaredHolidays: string[] };
+  year: number;
+  month: number;
+  daysInMonth: number;
+}): RegisterDto {
+  const records: Record<string, AttendanceRecordDto> = {};
+  for (const record of attendanceRecords) {
+    records[recordKey(record.teacherId, record.date)] = toRecordDto(record);
+  }
 
   const summaries: Record<string, MonthlySummary> = {};
   for (const teacher of teachers) {

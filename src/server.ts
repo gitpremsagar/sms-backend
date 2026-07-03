@@ -8,6 +8,8 @@ import teacherRouter from "./module/teacher/teacher.routes.js";
 import classRouter from "./module/class/class.routes.js";
 import studentRouter from "./module/student/student.routes.js";
 import attendanceRouter from "./module/attendance/attendance.routes.js";
+import notificationRouter from "./module/notification/notification.routes.js";
+import teacherPortalRouter from "./module/teacher-portal/teacher-portal.routes.js";
 
 const app = express();
 
@@ -31,6 +33,8 @@ app.use("/api/teachers", teacherRouter);
 app.use("/api/classes", classRouter);
 app.use("/api/students", studentRouter);
 app.use("/api/attendance", attendanceRouter);
+app.use("/api/notifications", notificationRouter);
+app.use("/api/teacher", teacherPortalRouter);
 app.use(authErrorHandler);
 
 app.use(

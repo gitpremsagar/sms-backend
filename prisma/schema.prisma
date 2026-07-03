@@ -35,10 +35,12 @@ model User {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
-  studentDetail StudentDetail?
-  teacherDetail TeacherDetail?
-  adminDetail   AdminDetail?
-  parentDetail  ParentDetail?
+  studentDetail       StudentDetail?
+  teacherDetail       TeacherDetail?
+  adminDetail         AdminDetail?
+  parentDetail        ParentDetail?
+  notificationsCreated Notification[]     @relation("NotificationsCreated")
+  notificationReads   NotificationRead[]
 
   @@index([role])
 }
@@ -134,4 +136,31 @@ model ParentDetail {
 
   user     User            @relation(fields: [userId], references: [id])
   children StudentDetail[] @relation(fields: [childrenIds], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  body      String
+  createdBy String   @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author User               @relation("NotificationsCreated", fields: [createdBy], references: [id])
+  reads  NotificationRead[]
+
+  @@index([createdAt])
+}
+
+model NotificationRead {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  notificationId String   @db.ObjectId
+  userId         String   @db.ObjectId
+  readAt         DateTime @default(now())
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([notificationId, userId])
+  @@index([userId])
 }

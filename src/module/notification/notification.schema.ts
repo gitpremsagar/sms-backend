@@ -1,0 +1,8 @@
+import { z } from "zod";
+
+export const createNotificationSchema = z.object({
+  title: z.string().min(1).max(200),
+  body: z.string().min(1).max(5000),
+});
+
+export type CreateNotificationInput = z.infer<typeof createNotificationSchema>;
