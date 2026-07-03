@@ -6,9 +6,40 @@ import {
 import { loginSchema } from "./auth.schema.js";
 import { AuthError, getUserById, login } from "./auth.service.js";
 
+function getCookieDomain(): string | undefined {
+  if (process.env.COOKIE_DOMAIN) {
+    return process.env.COOKIE_DOMAIN;
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    return undefined;
+  }
+
+  const frontendUrl = process.env.FRONTEND_URL;
+  if (!frontendUrl) {
+    return undefined;
+  }
+
+  try {
+    const { hostname } = new URL(frontendUrl);
+    if (hostname === "localhost") {
+      return undefined;
+    }
+
+    const parts = hostname.split(".");
+    if (parts.length >= 3) {
+      return `.${parts.slice(-2).join(".")}`;
+    }
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
+}
+
 function getAuthCookieBaseOptions() {
   const isProduction = process.env.NODE_ENV === "production";
-  const domain = process.env.COOKIE_DOMAIN;
+  const domain = getCookieDomain();
 
   return {
     httpOnly: true,
