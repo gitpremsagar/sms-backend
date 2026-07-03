@@ -6,23 +6,28 @@ import {
 import { loginSchema } from "./auth.schema.js";
 import { AuthError, getUserById, login } from "./auth.service.js";
 
+function getAuthCookieBaseOptions() {
+  const isProduction = process.env.NODE_ENV === "production";
+  const domain = process.env.COOKIE_DOMAIN;
+
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: "lax" as const,
+    path: "/",
+    ...(domain ? { domain } : {}),
+  };
+}
+
 function setAuthCookie(res: Response, token: string) {
   res.cookie(AUTH_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    ...getAuthCookieBaseOptions(),
     maxAge: AUTH_COOKIE_MAX_AGE_MS,
-    path: "/",
   });
 }
 
 function clearAuthCookie(res: Response) {
-  res.clearCookie(AUTH_COOKIE_NAME, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-  });
+  res.clearCookie(AUTH_COOKIE_NAME, getAuthCookieBaseOptions());
 }
 
 export async function loginHandler(
