@@ -1,5 +1,9 @@
 import { AttendanceStatus, Role } from "@prisma/client";
 import prisma from "../../lib/prisma.js";
+import {
+  type MonthlySummary,
+  computeMonthlySummary,
+} from "./attendance.classify.js";
 
 export type AttendanceRecordDto = {
   status: AttendanceStatus;
@@ -11,11 +15,15 @@ export type RegisterTeacherDto = {
   id: string;
   name: string;
   employeeId: string | null;
+  workStartTime: string;
+  workEndTime: string;
+  halfDayThresholdTime: string;
 };
 
 export type RegisterDto = {
   teachers: RegisterTeacherDto[];
   records: Record<string, AttendanceRecordDto>;
+  summaries: Record<string, MonthlySummary>;
   holidays: string[];
   declaredHolidays: string[];
   year: number;
@@ -133,7 +141,7 @@ function toRecordDto(record: {
 export async function getRegister(year: number, month: number): Promise<RegisterDto> {
   const { startDate, endDate, daysInMonth } = getMonthDateRange(year, month);
 
-  const [teachers, attendanceRecords, holidayData] = await Promise.all([
+  const [teachersRaw, attendanceRecords, holidayData] = await Promise.all([
     prisma.user.findMany({
       where: { role: Role.TEACHER },
       include: { teacherDetail: true },
@@ -152,15 +160,38 @@ export async function getRegister(year: number, month: number): Promise<Register
     records[recordKey(record.teacherId, record.date)] = toRecordDto(record);
   }
 
+  const teachers = teachersRaw
+    .filter((user) => user.teacherDetail)
+    .map((user) => ({
+      id: user.teacherDetail!.id,
+      name: user.name,
+      employeeId: user.teacherDetail!.employeeId,
+      workStartTime: user.teacherDetail!.workStartTime,
+      workEndTime: user.teacherDetail!.workEndTime,
+      halfDayThresholdTime: user.teacherDetail!.halfDayThresholdTime,
+    }));
+
+  const summaries: Record<string, MonthlySummary> = {};
+  for (const teacher of teachers) {
+    summaries[teacher.id] = computeMonthlySummary(
+      teacher.id,
+      {
+        workStartTime: teacher.workStartTime,
+        workEndTime: teacher.workEndTime,
+        halfDayThresholdTime: teacher.halfDayThresholdTime,
+      },
+      records,
+      year,
+      month,
+      daysInMonth,
+      holidayData.holidays,
+    );
+  }
+
   return {
-    teachers: teachers
-      .filter((user) => user.teacherDetail)
-      .map((user) => ({
-        id: user.teacherDetail!.id,
-        name: user.name,
-        employeeId: user.teacherDetail!.employeeId,
-      })),
+    teachers,
     records,
+    summaries,
     holidays: holidayData.holidays,
     declaredHolidays: holidayData.declaredHolidays,
     year,

@@ -10,6 +10,9 @@ export type TeacherDto = {
   email: string;
   employeeId: string | null;
   phone: string | null;
+  workStartTime: string;
+  workEndTime: string;
+  halfDayThresholdTime: string;
   createdAt: string;
 };
 
@@ -22,6 +25,9 @@ function toTeacherDto(user: {
     id: string;
     employeeId: string | null;
     phone: string | null;
+    workStartTime: string;
+    workEndTime: string;
+    halfDayThresholdTime: string;
   } | null;
 }): TeacherDto {
   if (!user.teacherDetail) {
@@ -35,6 +41,9 @@ function toTeacherDto(user: {
     email: user.email,
     employeeId: user.teacherDetail.employeeId,
     phone: user.teacherDetail.phone,
+    workStartTime: user.teacherDetail.workStartTime,
+    workEndTime: user.teacherDetail.workEndTime,
+    halfDayThresholdTime: user.teacherDetail.halfDayThresholdTime,
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -60,6 +69,16 @@ export async function createTeacher(input: CreateTeacherInput): Promise<TeacherD
     throw new TeacherError("A user with this email already exists", 409);
   }
 
+  if (input.employeeId) {
+    const existingEmployee = await prisma.teacherDetail.findUnique({
+      where: { employeeId: input.employeeId },
+    });
+
+    if (existingEmployee) {
+      throw new TeacherError("A teacher with this employee ID already exists", 409);
+    }
+  }
+
   const hashedPassword = await bcrypt.hash(input.password, 10);
 
   const user = await prisma.user.create({
@@ -72,6 +91,11 @@ export async function createTeacher(input: CreateTeacherInput): Promise<TeacherD
         create: {
           ...(input.employeeId ? { employeeId: input.employeeId } : {}),
           ...(input.phone ? { phone: input.phone } : {}),
+          ...(input.workStartTime ? { workStartTime: input.workStartTime } : {}),
+          ...(input.workEndTime ? { workEndTime: input.workEndTime } : {}),
+          ...(input.halfDayThresholdTime
+            ? { halfDayThresholdTime: input.halfDayThresholdTime }
+            : {}),
         },
       },
     },
@@ -154,16 +178,32 @@ export async function updateTeacher(
   }
 
   const detailData: {
-    employeeId?: string | null;
+    employeeId?: string | null | { unset: true };
     phone?: string | null;
+    workStartTime?: string;
+    workEndTime?: string;
+    halfDayThresholdTime?: string;
   } = {};
 
   if (input.employeeId !== undefined) {
-    detailData.employeeId = input.employeeId;
+    detailData.employeeId =
+      input.employeeId === null ? { unset: true } : input.employeeId;
   }
 
   if (input.phone !== undefined) {
     detailData.phone = input.phone;
+  }
+
+  if (input.workStartTime !== undefined) {
+    detailData.workStartTime = input.workStartTime;
+  }
+
+  if (input.workEndTime !== undefined) {
+    detailData.workEndTime = input.workEndTime;
+  }
+
+  if (input.halfDayThresholdTime !== undefined) {
+    detailData.halfDayThresholdTime = input.halfDayThresholdTime;
   }
 
   const user = await prisma.user.update({

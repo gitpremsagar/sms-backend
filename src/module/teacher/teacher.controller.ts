@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
+import { Prisma } from "@prisma/client";
 import { objectIdParamSchema } from "../../lib/object-id.js";
 import { createTeacherSchema, updateTeacherSchema } from "./teacher.schema.js";
 import {
@@ -119,6 +120,30 @@ export function teacherErrorHandler(
   if (error instanceof TeacherError) {
     res.status(error.statusCode).json({ error: error.message });
     return;
+  }
+
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  ) {
+    const target = error.meta?.target;
+    const fields = Array.isArray(target)
+      ? target.join(", ")
+      : typeof target === "string"
+        ? target
+        : "";
+
+    if (fields.includes("employeeId")) {
+      res
+        .status(409)
+        .json({ error: "A teacher with this employee ID already exists" });
+      return;
+    }
+
+    if (fields.includes("email")) {
+      res.status(409).json({ error: "A user with this email already exists" });
+      return;
+    }
   }
 
   next(error);

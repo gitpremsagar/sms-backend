@@ -73,12 +73,15 @@ model StudentDetail {
 }
 
 model TeacherDetail {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  employeeId String?  @unique
-  phone      String?
-  userId     String   @unique @db.ObjectId
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId           String?  @unique
+  phone                String?
+  workStartTime        String   @default("09:00")
+  workEndTime          String   @default("17:00")
+  halfDayThresholdTime String   @default("11:00")
+  userId               String   @unique @db.ObjectId
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   user         User                @relation(fields: [userId], references: [id])
   classes      Class[]
