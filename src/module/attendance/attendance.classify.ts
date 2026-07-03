@@ -28,7 +28,7 @@ export function parseTimeToMinutes(time: string): number {
 
 export function getPunchMinutes(iso: string): number {
   const date = new Date(iso);
-  return date.getHours() * 60 + date.getMinutes();
+  return date.getUTCHours() * 60 + date.getUTCMinutes();
 }
 
 function formatDate(year: number, month: number, day: number): string {

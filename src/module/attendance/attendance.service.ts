@@ -47,6 +47,7 @@ export function isSunday(date: string): boolean {
   return parseDate(date).getDay() === 0;
 }
 
+/** Store wall-clock HH:mm as UTC components so display is timezone-independent. */
 export function combineDateAndTime(date: string, time: string): Date {
   const parts = date.split("-").map(Number);
   const year = parts[0] ?? 0;
@@ -56,7 +57,22 @@ export function combineDateAndTime(date: string, time: string): Date {
   const hours = timeParts[0] ?? 0;
   const minutes = timeParts[1] ?? 0;
 
-  return new Date(year, month - 1, day, hours, minutes, 0, 0);
+  return new Date(Date.UTC(year, month - 1, day, hours, minutes, 0, 0));
+}
+
+function wallClockNow(): Date {
+  const now = new Date();
+  return new Date(
+    Date.UTC(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      now.getHours(),
+      now.getMinutes(),
+      now.getSeconds(),
+      now.getMilliseconds(),
+    ),
+  );
 }
 
 function getDaysInMonth(year: number, month: number): number {
@@ -311,7 +327,7 @@ export async function punchIn(
     throw new AttendanceError("Attendance record already exists. Undo first to start over.", 400);
   }
 
-  const punchInTime = time ? combineDateAndTime(date, time) : new Date();
+  const punchInTime = time ? combineDateAndTime(date, time) : wallClockNow();
 
   const record = await prisma.teacherAttendance.create({
     data: {
@@ -345,7 +361,7 @@ export async function punchOut(
     throw new AttendanceError("Already punched out", 400);
   }
 
-  const punchOutTime = time ? combineDateAndTime(date, time) : new Date();
+  const punchOutTime = time ? combineDateAndTime(date, time) : wallClockNow();
 
   if (punchOutTime <= existing.punchIn) {
     throw new AttendanceError("Punch out time must be after punch in time", 400);
