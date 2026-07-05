@@ -13,6 +13,7 @@ export type TeacherDto = {
   workStartTime: string;
   workEndTime: string;
   halfDayThresholdTime: string;
+  monthlySalary: number;
   createdAt: string;
 };
 
@@ -28,6 +29,7 @@ function toTeacherDto(user: {
     workStartTime: string;
     workEndTime: string;
     halfDayThresholdTime: string;
+    monthlySalary: number;
   } | null;
 }): TeacherDto {
   if (!user.teacherDetail) {
@@ -44,6 +46,7 @@ function toTeacherDto(user: {
     workStartTime: user.teacherDetail.workStartTime,
     workEndTime: user.teacherDetail.workEndTime,
     halfDayThresholdTime: user.teacherDetail.halfDayThresholdTime,
+    monthlySalary: user.teacherDetail.monthlySalary,
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -95,6 +98,9 @@ export async function createTeacher(input: CreateTeacherInput): Promise<TeacherD
           ...(input.workEndTime ? { workEndTime: input.workEndTime } : {}),
           ...(input.halfDayThresholdTime
             ? { halfDayThresholdTime: input.halfDayThresholdTime }
+            : {}),
+          ...(input.monthlySalary !== undefined
+            ? { monthlySalary: input.monthlySalary }
             : {}),
         },
       },
@@ -183,6 +189,7 @@ export async function updateTeacher(
     workStartTime?: string;
     workEndTime?: string;
     halfDayThresholdTime?: string;
+    monthlySalary?: number;
   } = {};
 
   if (input.employeeId !== undefined) {
@@ -204,6 +211,10 @@ export async function updateTeacher(
 
   if (input.halfDayThresholdTime !== undefined) {
     detailData.halfDayThresholdTime = input.halfDayThresholdTime;
+  }
+
+  if (input.monthlySalary !== undefined) {
+    detailData.monthlySalary = input.monthlySalary;
   }
 
   const user = await prisma.user.update({

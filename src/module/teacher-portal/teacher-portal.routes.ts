@@ -6,6 +6,7 @@ import {
   getMyAttendanceRegisterHandler,
   getMyClassByIdHandler,
   getMyNotificationsHandler,
+  getMySalaryHandler,
   listMyClassesHandler,
   markMyNotificationReadHandler,
   teacherPortalErrorHandler,
@@ -16,6 +17,7 @@ const teacherPortalRouter = Router();
 teacherPortalRouter.use(authenticate, requireRole(Role.TEACHER));
 
 teacherPortalRouter.get("/attendance/register", getMyAttendanceRegisterHandler);
+teacherPortalRouter.get("/salary", getMySalaryHandler);
 teacherPortalRouter.get("/classes", listMyClassesHandler);
 teacherPortalRouter.get("/classes/:id", getMyClassByIdHandler);
 teacherPortalRouter.get("/notifications", getMyNotificationsHandler);

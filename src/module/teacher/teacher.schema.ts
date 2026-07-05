@@ -6,6 +6,7 @@ const scheduleFields = {
   workStartTime: timeSchema.optional(),
   workEndTime: timeSchema.optional(),
   halfDayThresholdTime: timeSchema.optional(),
+  monthlySalary: z.number().min(0).optional(),
 };
 
 const scheduleRefineOptions = {

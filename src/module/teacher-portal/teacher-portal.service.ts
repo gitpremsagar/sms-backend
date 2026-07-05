@@ -5,6 +5,11 @@ import {
   type RegisterDto,
 } from "../attendance/attendance.service.js";
 import {
+  type SalaryBreakdown,
+  SalaryError,
+  getSalaryForTeacher,
+} from "../salary/salary.service.js";
+import {
   NotificationError,
   listNotificationsForUser,
   markNotificationRead,
@@ -36,6 +41,14 @@ export async function getMyAttendanceRegister(
   month: number,
 ): Promise<RegisterDto> {
   return getRegisterForTeacher(userId, year, month);
+}
+
+export async function getMySalary(
+  userId: string,
+  year: number,
+  month: number,
+): Promise<SalaryBreakdown> {
+  return getSalaryForTeacher(userId, year, month);
 }
 
 async function getTeacherDetailId(userId: string): Promise<string> {
@@ -129,4 +142,4 @@ export class TeacherPortalError extends Error {
   }
 }
 
-export { AttendanceError, NotificationError };
+export { AttendanceError, NotificationError, SalaryError };
