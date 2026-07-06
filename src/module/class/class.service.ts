@@ -6,6 +6,7 @@ export type ClassDto = {
   className: string;
   teacherId: string;
   teacherName: string;
+  monthlyFee: number;
   createdAt: string;
 };
 
@@ -13,6 +14,7 @@ function toClassDto(cls: {
   id: string;
   className: string;
   teacherId: string;
+  monthlyFee: number;
   createdAt: Date;
   teacher: { user: { name: string } };
 }): ClassDto {
@@ -21,6 +23,7 @@ function toClassDto(cls: {
     className: cls.className,
     teacherId: cls.teacherId,
     teacherName: cls.teacher.user.name,
+    monthlyFee: cls.monthlyFee,
     createdAt: cls.createdAt.toISOString(),
   };
 }
@@ -59,6 +62,7 @@ export async function createClass(input: CreateClassInput): Promise<ClassDto> {
     data: {
       className: input.className,
       teacherId: input.teacherId,
+      monthlyFee: input.monthlyFee ?? 0,
     },
     include: {
       teacher: {
@@ -122,6 +126,7 @@ export async function updateClass(
   const data: {
     className?: string;
     teacherId?: string;
+    monthlyFee?: number;
   } = {};
 
   if (input.className !== undefined) {
@@ -130,6 +135,10 @@ export async function updateClass(
 
   if (input.teacherId !== undefined) {
     data.teacherId = input.teacherId;
+  }
+
+  if (input.monthlyFee !== undefined) {
+    data.monthlyFee = input.monthlyFee;
   }
 
   const schoolClass = await prisma.class.update({

@@ -26,6 +26,11 @@ enum AttendanceStatus {
   ABSENT
 }
 
+enum FeePaymentStatus {
+  PAID
+  UNPAID
+}
+
 model User {
   id            String         @id @default(auto()) @map("_id") @db.ObjectId
   name          String
@@ -41,16 +46,18 @@ model User {
   parentDetail        ParentDetail?
   notificationsCreated Notification[]     @relation("NotificationsCreated")
   notificationReads   NotificationRead[]
+  feePaymentsUpdated  StudentFeePayment[]
 
   @@index([role])
 }
 
 model Class {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  className String   @unique
-  teacherId String   @db.ObjectId
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  className  String   @unique
+  teacherId  String   @db.ObjectId
+  monthlyFee Float    @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   teacher  TeacherDetail   @relation(fields: [teacherId], references: [id])
   students StudentDetail[]
@@ -67,11 +74,31 @@ model StudentDetail {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
-  user    User           @relation(fields: [userId], references: [id])
-  class   Class          @relation(fields: [classId], references: [id])
-  parents ParentDetail[] @relation(fields: [parentIds], references: [id])
+  user         User                @relation(fields: [userId], references: [id])
+  class        Class               @relation(fields: [classId], references: [id])
+  parents      ParentDetail[]      @relation(fields: [parentIds], references: [id])
+  feePayments  StudentFeePayment[]
 
   @@index([classId])
+}
+
+model StudentFeePayment {
+  id                 String           @id @default(auto()) @map("_id") @db.ObjectId
+  studentId          String           @db.ObjectId
+  financialYearStart Int
+  month              Int
+  status             FeePaymentStatus @default(UNPAID)
+  amount             Float            @default(0)
+  updatedById        String?          @db.ObjectId
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  student   StudentDetail @relation(fields: [studentId], references: [id])
+  updatedBy User?         @relation(fields: [updatedById], references: [id])
+
+  @@unique([studentId, financialYearStart, month])
+  @@index([financialYearStart, month])
+  @@index([studentId])
 }
 
 model TeacherDetail {

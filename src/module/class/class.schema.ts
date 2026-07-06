@@ -3,12 +3,14 @@ import { z } from "zod";
 export const createClassSchema = z.object({
   className: z.string().min(1),
   teacherId: z.string().min(1),
+  monthlyFee: z.coerce.number().min(0).optional(),
 });
 
 export const updateClassSchema = z
   .object({
     className: z.string().min(1).optional(),
     teacherId: z.string().min(1).optional(),
+    monthlyFee: z.coerce.number().min(0).optional(),
   })
   .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "At least one field must be provided",
