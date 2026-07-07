@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import {
+  bulkPunchSchema,
   declareHolidaySchema,
   punchSchema,
   registerQuerySchema,
@@ -7,6 +8,8 @@ import {
 } from "./attendance.schema.js";
 import {
   AttendanceError,
+  bulkPunchIn,
+  bulkPunchOut,
   declareHoliday,
   getRegister,
   markAbsent,
@@ -79,6 +82,46 @@ export async function punchOutHandler(
       parsed.data.time,
     );
     res.json({ record });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function bulkPunchInHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const parsed = bulkPunchSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid request body" });
+      return;
+    }
+
+    const summary = await bulkPunchIn(parsed.data.date, parsed.data.time);
+    res.json({ summary });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function bulkPunchOutHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const parsed = bulkPunchSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid request body" });
+      return;
+    }
+
+    const summary = await bulkPunchOut(parsed.data.date, parsed.data.time);
+    res.json({ summary });
   } catch (error) {
     next(error);
   }

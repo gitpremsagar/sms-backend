@@ -407,6 +407,192 @@ export async function markAbsent(teacherId: string, date: string): Promise<Atten
   return toRecordDto(record);
 }
 
+export type BulkPunchSkippedTeacher = {
+  id: string;
+  name: string;
+  reason: string;
+};
+
+export type BulkPunchSummary = {
+  date: string;
+  processed: number;
+  skipped: number;
+  skippedTeachers: BulkPunchSkippedTeacher[];
+};
+
+async function loadAllTeachers(): Promise<{ id: string; name: string }[]> {
+  const teachersRaw = await prisma.user.findMany({
+    where: { role: Role.TEACHER },
+    include: { teacherDetail: true },
+    orderBy: { name: "asc" },
+  });
+
+  return teachersRaw
+    .filter((user) => user.teacherDetail)
+    .map((user) => ({
+      id: user.teacherDetail!.id,
+      name: user.name,
+    }));
+}
+
+export async function bulkPunchIn(
+  date: string,
+  time?: string,
+): Promise<BulkPunchSummary> {
+  await assertNotHoliday(date);
+
+  const teachers = await loadAllTeachers();
+  const existingRecords = await prisma.teacherAttendance.findMany({
+    where: { date },
+  });
+  const existingByTeacherId = new Map(
+    existingRecords.map((record) => [record.teacherId, record]),
+  );
+
+  const punchInTime = time ? combineDateAndTime(date, time) : wallClockNow();
+  const eligible: { id: string; name: string }[] = [];
+  const skippedTeachers: BulkPunchSkippedTeacher[] = [];
+
+  for (const teacher of teachers) {
+    const existing = existingByTeacherId.get(teacher.id);
+
+    if (!existing) {
+      eligible.push(teacher);
+      continue;
+    }
+
+    if (existing.status === AttendanceStatus.IN_PROGRESS) {
+      skippedTeachers.push({
+        id: teacher.id,
+        name: teacher.name,
+        reason: "Already punched in",
+      });
+    } else if (existing.status === AttendanceStatus.PRESENT) {
+      skippedTeachers.push({
+        id: teacher.id,
+        name: teacher.name,
+        reason: "Already present",
+      });
+    } else {
+      skippedTeachers.push({
+        id: teacher.id,
+        name: teacher.name,
+        reason: "Already marked absent",
+      });
+    }
+  }
+
+  if (eligible.length === 0) {
+    throw new AttendanceError("No teachers eligible for punch in", 400);
+  }
+
+  await prisma.$transaction(
+    eligible.map((teacher) =>
+      prisma.teacherAttendance.create({
+        data: {
+          teacherId: teacher.id,
+          date,
+          status: AttendanceStatus.IN_PROGRESS,
+          punchIn: punchInTime,
+        },
+      }),
+    ),
+  );
+
+  return {
+    date,
+    processed: eligible.length,
+    skipped: skippedTeachers.length,
+    skippedTeachers,
+  };
+}
+
+export async function bulkPunchOut(
+  date: string,
+  time?: string,
+): Promise<BulkPunchSummary> {
+  await assertNotHoliday(date);
+
+  const teachers = await loadAllTeachers();
+  const existingRecords = await prisma.teacherAttendance.findMany({
+    where: { date },
+  });
+  const existingByTeacherId = new Map(
+    existingRecords.map((record) => [record.teacherId, record]),
+  );
+
+  const punchOutTime = time ? combineDateAndTime(date, time) : wallClockNow();
+  const eligible: { id: string; name: string }[] = [];
+  const skippedTeachers: BulkPunchSkippedTeacher[] = [];
+
+  for (const teacher of teachers) {
+    const existing = existingByTeacherId.get(teacher.id);
+
+    if (!existing) {
+      skippedTeachers.push({
+        id: teacher.id,
+        name: teacher.name,
+        reason: "Not punched in",
+      });
+      continue;
+    }
+
+    if (!existing.punchIn) {
+      skippedTeachers.push({
+        id: teacher.id,
+        name: teacher.name,
+        reason: existing.status === AttendanceStatus.ABSENT
+          ? "Marked absent"
+          : "Not punched in",
+      });
+      continue;
+    }
+
+    if (existing.punchOut) {
+      skippedTeachers.push({
+        id: teacher.id,
+        name: teacher.name,
+        reason: "Already punched out",
+      });
+      continue;
+    }
+
+    if (punchOutTime <= existing.punchIn) {
+      skippedTeachers.push({
+        id: teacher.id,
+        name: teacher.name,
+        reason: "Punch out time must be after punch in time",
+      });
+      continue;
+    }
+
+    eligible.push(teacher);
+  }
+
+  if (eligible.length === 0) {
+    throw new AttendanceError("No teachers eligible for punch out", 400);
+  }
+
+  await prisma.$transaction(
+    eligible.map((teacher) =>
+      prisma.teacherAttendance.update({
+        where: { teacherId_date: { teacherId: teacher.id, date } },
+        data: {
+          status: AttendanceStatus.PRESENT,
+          punchOut: punchOutTime,
+        },
+      }),
+    ),
+  );
+
+  return {
+    date,
+    processed: eligible.length,
+    skipped: skippedTeachers.length,
+    skippedTeachers,
+  };
+}
+
 export async function undoRecord(teacherId: string, date: string): Promise<void> {
   await assertTeacherExists(teacherId);
   await assertNotHoliday(date);

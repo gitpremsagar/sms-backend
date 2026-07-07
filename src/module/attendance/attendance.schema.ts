@@ -18,6 +18,11 @@ export const punchSchema = teacherDateSchema.extend({
   time: timeSchema.optional(),
 });
 
+export const bulkPunchSchema = z.object({
+  date: dateSchema,
+  time: timeSchema.optional(),
+});
+
 export const declareHolidaySchema = z.object({
   date: dateSchema,
   label: z.string().min(1).optional(),
@@ -25,4 +30,5 @@ export const declareHolidaySchema = z.object({
 
 export type RegisterQuery = z.infer<typeof registerQuerySchema>;
 export type TeacherDateInput = z.infer<typeof teacherDateSchema>;
+export type BulkPunchInput = z.infer<typeof bulkPunchSchema>;
 export type DeclareHolidayInput = z.infer<typeof declareHolidaySchema>;
