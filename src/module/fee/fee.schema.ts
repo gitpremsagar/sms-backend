@@ -21,7 +21,7 @@ export const updateFeePaymentSchema = z.object({
   studentId: z.string().min(1),
   financialYearStart: z.coerce.number().int().min(2000).max(2100),
   month: fyMonthSchema,
-  status: z.enum(["PAID", "UNPAID"]),
+  amount: z.coerce.number().min(0),
 });
 
 export type FeeRegisterQuery = z.infer<typeof feeRegisterQuerySchema>;

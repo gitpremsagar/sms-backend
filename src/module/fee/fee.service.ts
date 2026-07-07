@@ -9,7 +9,12 @@ import {
 } from "./fee.financial-year.js";
 import type { UpdateFeePaymentInput } from "./fee.schema.js";
 
-export type FeePaymentCellStatus = "PAID" | "UNPAID" | "UPCOMING";
+export type FeePaymentCellStatus = "PAID" | "PARTIAL" | "UNPAID" | "UPCOMING";
+
+export type FeePaymentCell = {
+  status: FeePaymentCellStatus;
+  amount: number;
+};
 
 export type FeeRegisterStudent = {
   id: string;
@@ -18,7 +23,7 @@ export type FeeRegisterStudent = {
   classId: string;
   className: string;
   monthlyFee: number;
-  payments: Record<number, FeePaymentCellStatus>;
+  payments: Record<number, FeePaymentCell>;
 };
 
 export type FeeRegisterDto = {
@@ -42,10 +47,7 @@ export type FeeReportStudentRow = {
   name: string;
   rollNumber: string;
   monthlyFee: number;
-  payments: Record<
-    number,
-    { status: FeePaymentCellStatus; amount: number }
-  >;
+  payments: Record<number, FeePaymentCell>;
 };
 
 export type FeeReportClassBreakdown = {
@@ -81,25 +83,37 @@ type StudentWithClass = {
   class: { id: string; className: string; monthlyFee: number };
 };
 
+function toCellStatus(status: FeePaymentStatus | undefined): FeePaymentCellStatus {
+  if (status === FeePaymentStatus.PAID) {
+    return "PAID";
+  }
+  if (status === FeePaymentStatus.PARTIAL) {
+    return "PARTIAL";
+  }
+  return "UNPAID";
+}
+
 function buildPaymentMap(
   student: StudentWithClass,
   financialYearStart: number,
   paymentRecords: Map<string, { status: FeePaymentStatus; amount: number }>,
   today: Date,
-): Record<number, FeePaymentCellStatus> {
-  const payments: Record<number, FeePaymentCellStatus> = {};
+): Record<number, FeePaymentCell> {
+  const payments: Record<number, FeePaymentCell> = {};
 
   for (const { month } of buildFinancialYearMonths(financialYearStart)) {
     const key = `${student.id}:${financialYearStart}:${month}`;
 
     if (!isMonthDue(financialYearStart, month, today)) {
-      payments[month] = "UPCOMING";
+      payments[month] = { status: "UPCOMING", amount: 0 };
       continue;
     }
 
     const record = paymentRecords.get(key);
-    payments[month] =
-      record?.status === FeePaymentStatus.PAID ? "PAID" : "UNPAID";
+    payments[month] = {
+      status: toCellStatus(record?.status),
+      amount: record?.amount ?? 0,
+    };
   }
 
   return payments;
@@ -110,33 +124,27 @@ function buildDetailedPaymentMap(
   financialYearStart: number,
   paymentRecords: Map<string, { status: FeePaymentStatus; amount: number }>,
   today: Date,
-): Record<number, { status: FeePaymentCellStatus; amount: number }> {
-  const payments: Record<
-    number,
-    { status: FeePaymentCellStatus; amount: number }
-  > = {};
+): Record<number, FeePaymentCell> {
+  const payments: Record<number, FeePaymentCell> = {};
 
   for (const { month } of buildFinancialYearMonths(financialYearStart)) {
     const key = `${student.id}:${financialYearStart}:${month}`;
     const record = paymentRecords.get(key);
-    const feeAmount = student.class.monthlyFee;
 
     if (!isMonthDue(financialYearStart, month, today)) {
-      payments[month] = { status: "UPCOMING", amount: feeAmount };
+      payments[month] = { status: "UPCOMING", amount: 0 };
       continue;
     }
 
-    const status: FeePaymentCellStatus =
-      record?.status === FeePaymentStatus.PAID ? "PAID" : "UNPAID";
-
     payments[month] = {
-      status,
-      amount: record?.amount ?? feeAmount,
+      status: toCellStatus(record?.status),
+      amount: record?.amount ?? 0,
     };
   }
 
   return payments;
 }
+
 
 async function loadStudents(classId?: string): Promise<StudentWithClass[]> {
   return prisma.studentDetail.findMany({
@@ -218,8 +226,8 @@ function accumulateMonthSummary(
   summaries: Map<number, FeeReportMonthSummary>,
   month: number,
   label: string,
-  status: FeePaymentCellStatus,
-  amount: number,
+  monthlyFee: number,
+  cell: FeePaymentCell,
 ) {
   const existing = summaries.get(month) ?? {
     month,
@@ -229,12 +237,11 @@ function accumulateMonthSummary(
     upcomingCount: 0,
   };
 
-  if (status === "PAID") {
-    existing.collected += amount;
-  } else if (status === "UNPAID") {
-    existing.due += amount;
-  } else {
+  if (cell.status === "UPCOMING") {
     existing.upcomingCount += 1;
+  } else {
+    existing.collected += cell.amount;
+    existing.due += monthlyFee - cell.amount;
   }
 
   summaries.set(month, existing);
@@ -260,7 +267,7 @@ export async function getFeeReport(
     const classStudents = students.filter((student) => student.classId === cls.id);
     const classMonthTotals: FeeReportClassBreakdown["monthTotals"] = {};
 
-    for (const { month, label } of months) {
+    for (const { month } of months) {
       classMonthTotals[month] = { collected: 0, due: 0, upcomingCount: 0 };
     }
 
@@ -281,24 +288,22 @@ export async function getFeeReport(
           continue;
         }
 
-        if (cell.status === "PAID") {
-          const monthTotal = classMonthTotals[month]!;
-          monthTotal.collected += cell.amount;
-          classCollected += cell.amount;
-        } else if (cell.status === "UNPAID") {
-          const monthTotal = classMonthTotals[month]!;
-          monthTotal.due += cell.amount;
-          classDue += cell.amount;
+        const monthTotal = classMonthTotals[month]!;
+        if (cell.status === "UPCOMING") {
+          monthTotal.upcomingCount += 1;
         } else {
-          classMonthTotals[month]!.upcomingCount += 1;
+          monthTotal.collected += cell.amount;
+          monthTotal.due += student.class.monthlyFee - cell.amount;
+          classCollected += cell.amount;
+          classDue += student.class.monthlyFee - cell.amount;
         }
 
         accumulateMonthSummary(
           monthSummaries,
           month,
           label,
-          cell.status,
-          cell.amount,
+          student.class.monthlyFee,
+          cell,
         );
       }
 
@@ -360,18 +365,36 @@ export async function updateFeePayment(
     throw new FeeError("Student not found", 404);
   }
 
-  const monthsToUpdate =
-    input.status === "PAID"
-      ? getMonthsThrough(input.month)
-      : getMonthsFrom(input.month);
+  const monthlyFee = student.class.monthlyFee;
+
+  if (input.amount > monthlyFee) {
+    throw new FeeError(
+      `Amount cannot exceed the monthly fee of ${monthlyFee}`,
+      400,
+    );
+  }
+
+  let monthsToUpdate: number[];
+  let status: FeePaymentStatus;
+  let storedAmount: number;
+
+  if (input.amount >= monthlyFee) {
+    monthsToUpdate = getMonthsThrough(input.month);
+    status = FeePaymentStatus.PAID;
+    storedAmount = monthlyFee;
+  } else if (input.amount > 0) {
+    monthsToUpdate = [input.month];
+    status = FeePaymentStatus.PARTIAL;
+    storedAmount = input.amount;
+  } else {
+    monthsToUpdate = getMonthsFrom(input.month);
+    status = FeePaymentStatus.UNPAID;
+    storedAmount = 0;
+  }
 
   if (monthsToUpdate.length === 0) {
     throw new FeeError("Invalid month for financial year", 400);
   }
-
-  const status =
-    input.status === "PAID" ? FeePaymentStatus.PAID : FeePaymentStatus.UNPAID;
-  const amount = student.class.monthlyFee;
 
   await prisma.$transaction(
     monthsToUpdate.map((month) =>
@@ -388,12 +411,12 @@ export async function updateFeePayment(
           financialYearStart: input.financialYearStart,
           month,
           status,
-          amount,
+          amount: storedAmount,
           updatedById: updatedByUserId,
         },
         update: {
           status,
-          amount,
+          amount: storedAmount,
           updatedById: updatedByUserId,
         },
       }),

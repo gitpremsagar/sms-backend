@@ -28,6 +28,7 @@ enum AttendanceStatus {
 
 enum FeePaymentStatus {
   PAID
+  PARTIAL
   UNPAID
 }
 
