@@ -6,6 +6,7 @@ import {
   createStudentHandler,
   deleteStudentHandler,
   getStudentByIdHandler,
+  importStudentsHandler,
   listStudentsHandler,
   studentErrorHandler,
   updateStudentHandler,
@@ -16,6 +17,7 @@ const studentRouter = Router();
 studentRouter.use(authenticate, requireRole(Role.ADMIN));
 
 studentRouter.get("/", listStudentsHandler);
+studentRouter.post("/import", importStudentsHandler);
 studentRouter.post("/", createStudentHandler);
 studentRouter.get("/:id", getStudentByIdHandler);
 studentRouter.patch("/:id", updateStudentHandler);

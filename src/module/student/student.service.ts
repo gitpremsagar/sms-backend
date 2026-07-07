@@ -11,20 +11,65 @@ export type StudentDto = {
   studentRollNumber: string;
   classId: string;
   className: string;
+  admissionDate: string | null;
+  motherName: string | null;
+  fatherName: string | null;
+  studentAadharNumber: string | null;
+  fatherAadharNumber: string | null;
+  motherAadharNumber: string | null;
+  dateOfBirth: string | null;
+  whatsappNumber: string | null;
+  contactNumber1: string | null;
+  contactNumber2: string | null;
+  isStudying: boolean;
   createdAt: string;
 };
+
+type StudentDetailRecord = {
+  id: string;
+  studentRollNumber: string;
+  classId: string;
+  admissionDate: Date | null;
+  motherName: string | null;
+  fatherName: string | null;
+  studentAadharNumber: string | null;
+  fatherAadharNumber: string | null;
+  motherAadharNumber: string | null;
+  dateOfBirth: Date | null;
+  whatsappNumber: string | null;
+  contactNumber1: string | null;
+  contactNumber2: string | null;
+  isStudying: boolean;
+  class: { className: string };
+};
+
+function toIsoDate(value: Date | null): string | null {
+  return value ? value.toISOString() : null;
+}
+
+function parseOptionalDate(value: string | null | undefined): Date | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new StudentError("Invalid date value", 400);
+  }
+
+  return date;
+}
 
 function toStudentDto(user: {
   id: string;
   name: string;
   email: string;
   createdAt: Date;
-  studentDetail: {
-    id: string;
-    studentRollNumber: string;
-    classId: string;
-    class: { className: string };
-  } | null;
+  studentDetail: StudentDetailRecord | null;
 }): StudentDto {
   if (!user.studentDetail) {
     throw new StudentError("Student profile not found", 500);
@@ -38,8 +83,95 @@ function toStudentDto(user: {
     studentRollNumber: user.studentDetail.studentRollNumber,
     classId: user.studentDetail.classId,
     className: user.studentDetail.class.className,
+    admissionDate: toIsoDate(user.studentDetail.admissionDate),
+    motherName: user.studentDetail.motherName,
+    fatherName: user.studentDetail.fatherName,
+    studentAadharNumber: user.studentDetail.studentAadharNumber,
+    fatherAadharNumber: user.studentDetail.fatherAadharNumber,
+    motherAadharNumber: user.studentDetail.motherAadharNumber,
+    dateOfBirth: toIsoDate(user.studentDetail.dateOfBirth),
+    whatsappNumber: user.studentDetail.whatsappNumber,
+    contactNumber1: user.studentDetail.contactNumber1,
+    contactNumber2: user.studentDetail.contactNumber2,
+    isStudying: user.studentDetail.isStudying,
     createdAt: user.createdAt.toISOString(),
   };
+}
+
+function buildProfileData(input: {
+  admissionDate?: string | null | undefined;
+  motherName?: string | null | undefined;
+  fatherName?: string | null | undefined;
+  studentAadharNumber?: string | null | undefined;
+  fatherAadharNumber?: string | null | undefined;
+  motherAadharNumber?: string | null | undefined;
+  dateOfBirth?: string | null | undefined;
+  whatsappNumber?: string | null | undefined;
+  contactNumber1?: string | null | undefined;
+  contactNumber2?: string | null | undefined;
+  isStudying?: boolean | undefined;
+}) {
+  const data: {
+    admissionDate?: Date | null;
+    motherName?: string | null;
+    fatherName?: string | null;
+    studentAadharNumber?: string | null;
+    fatherAadharNumber?: string | null;
+    motherAadharNumber?: string | null;
+    dateOfBirth?: Date | null;
+    whatsappNumber?: string | null;
+    contactNumber1?: string | null;
+    contactNumber2?: string | null;
+    isStudying?: boolean;
+  } = {};
+
+  if (input.admissionDate !== undefined) {
+    const parsed = parseOptionalDate(input.admissionDate);
+    data.admissionDate = parsed === undefined ? null : parsed;
+  }
+
+  if (input.motherName !== undefined) {
+    data.motherName = input.motherName?.trim() || null;
+  }
+
+  if (input.fatherName !== undefined) {
+    data.fatherName = input.fatherName?.trim() || null;
+  }
+
+  if (input.studentAadharNumber !== undefined) {
+    data.studentAadharNumber = input.studentAadharNumber?.trim() || null;
+  }
+
+  if (input.fatherAadharNumber !== undefined) {
+    data.fatherAadharNumber = input.fatherAadharNumber?.trim() || null;
+  }
+
+  if (input.motherAadharNumber !== undefined) {
+    data.motherAadharNumber = input.motherAadharNumber?.trim() || null;
+  }
+
+  if (input.dateOfBirth !== undefined) {
+    const parsed = parseOptionalDate(input.dateOfBirth);
+    data.dateOfBirth = parsed === undefined ? null : parsed;
+  }
+
+  if (input.whatsappNumber !== undefined) {
+    data.whatsappNumber = input.whatsappNumber?.trim() || null;
+  }
+
+  if (input.contactNumber1 !== undefined) {
+    data.contactNumber1 = input.contactNumber1?.trim() || null;
+  }
+
+  if (input.contactNumber2 !== undefined) {
+    data.contactNumber2 = input.contactNumber2?.trim() || null;
+  }
+
+  if (input.isStudying !== undefined) {
+    data.isStudying = input.isStudying;
+  }
+
+  return data;
 }
 
 export async function listStudents(): Promise<StudentDto[]> {
@@ -84,6 +216,7 @@ export async function createStudent(input: CreateStudentInput): Promise<StudentD
   }
 
   const hashedPassword = await bcrypt.hash(input.password, 10);
+  const profileData = buildProfileData(input);
 
   const user = await prisma.user.create({
     data: {
@@ -96,6 +229,7 @@ export async function createStudent(input: CreateStudentInput): Promise<StudentD
           studentRollNumber: input.studentRollNumber,
           classId: input.classId,
           parentIds: [],
+          ...profileData,
         },
       },
     },
@@ -195,6 +329,17 @@ export async function updateStudent(
   const detailData: {
     studentRollNumber?: string;
     classId?: string;
+    admissionDate?: Date | null;
+    motherName?: string | null;
+    fatherName?: string | null;
+    studentAadharNumber?: string | null;
+    fatherAadharNumber?: string | null;
+    motherAadharNumber?: string | null;
+    dateOfBirth?: Date | null;
+    whatsappNumber?: string | null;
+    contactNumber1?: string | null;
+    contactNumber2?: string | null;
+    isStudying?: boolean;
   } = {};
 
   if (input.studentRollNumber !== undefined) {
@@ -204,6 +349,8 @@ export async function updateStudent(
   if (input.classId !== undefined) {
     detailData.classId = input.classId;
   }
+
+  Object.assign(detailData, buildProfileData(input));
 
   const user = await prisma.user.update({
     where: { id: studentDetail.userId },

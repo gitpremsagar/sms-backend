@@ -66,13 +66,24 @@ model Class {
 }
 
 model StudentDetail {
-  id                String         @id @default(auto()) @map("_id") @db.ObjectId
-  studentRollNumber String         @unique
-  userId            String         @unique @db.ObjectId
-  classId           String         @db.ObjectId
-  parentIds         String[]       @db.ObjectId
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  studentRollNumber   String    @unique
+  userId              String    @unique @db.ObjectId
+  classId             String    @db.ObjectId
+  parentIds           String[]  @db.ObjectId
+  admissionDate       DateTime?
+  motherName          String?
+  fatherName          String?
+  studentAadharNumber String?
+  fatherAadharNumber  String?
+  motherAadharNumber  String?
+  dateOfBirth         DateTime?
+  whatsappNumber      String?
+  contactNumber1      String?
+  contactNumber2      String?
+  isStudying          Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   user         User                @relation(fields: [userId], references: [id])
   class        Class               @relation(fields: [classId], references: [id])
