@@ -81,6 +81,17 @@ export function isMonthDue(
   return monthIndex <= currentIndex;
 }
 
+export function isCurrentFyMonth(
+  financialYearStart: number,
+  month: number,
+  today: Date = new Date(),
+): boolean {
+  return (
+    financialYearStart === getFinancialYearStart(today) &&
+    month === today.getMonth() + 1
+  );
+}
+
 export function buildFinancialYearMonths(financialYearStart: number) {
   return FY_MONTHS.map((month) => ({
     month,

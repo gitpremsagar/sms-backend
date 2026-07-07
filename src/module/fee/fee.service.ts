@@ -5,6 +5,7 @@ import {
   formatFinancialYearLabel,
   getMonthsFrom,
   getMonthsThrough,
+  isCurrentFyMonth,
   isMonthDue,
 } from "./fee.financial-year.js";
 import type { UpdateFeePaymentInput } from "./fee.schema.js";
@@ -292,10 +293,13 @@ export async function getFeeReport(
         if (cell.status === "UPCOMING") {
           monthTotal.upcomingCount += 1;
         } else {
+          const dueAmount = student.class.monthlyFee - cell.amount;
           monthTotal.collected += cell.amount;
-          monthTotal.due += student.class.monthlyFee - cell.amount;
+          monthTotal.due += dueAmount;
           classCollected += cell.amount;
-          classDue += student.class.monthlyFee - cell.amount;
+          if (!isCurrentFyMonth(financialYearStart, month, today)) {
+            classDue += dueAmount;
+          }
         }
 
         accumulateMonthSummary(
