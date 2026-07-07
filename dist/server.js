@@ -11,6 +11,7 @@ import attendanceRouter from "./module/attendance/attendance.routes.js";
 import notificationRouter from "./module/notification/notification.routes.js";
 import salaryRouter from "./module/salary/salary.routes.js";
 import feeRouter from "./module/fee/fee.routes.js";
+import studentAttendanceRouter from "./module/student-attendance/student-attendance.routes.js";
 import teacherPortalRouter from "./module/teacher-portal/teacher-portal.routes.js";
 const app = express();
 const FRONTEND_URL = process.env.FRONTEND_URL ?? "http://localhost:3000";
@@ -31,6 +32,7 @@ app.use("/api/attendance", attendanceRouter);
 app.use("/api/salary", salaryRouter);
 app.use("/api/fees", feeRouter);
 app.use("/api/notifications", notificationRouter);
+app.use("/api/student-attendance", studentAttendanceRouter);
 app.use("/api/teacher", teacherPortalRouter);
 app.use(authErrorHandler);
 app.use((error, _req, res, _next) => {

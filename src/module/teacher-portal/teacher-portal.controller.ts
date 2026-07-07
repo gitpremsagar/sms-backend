@@ -13,6 +13,7 @@ import {
   listMyClasses,
   markMyNotificationRead,
 } from "./teacher-portal.service.js";
+import { StudentAttendanceError } from "../student-attendance/student-attendance.service.js";
 
 export async function getMyAttendanceRegisterHandler(
   req: Request,
@@ -174,7 +175,8 @@ export function teacherPortalErrorHandler(
     error instanceof TeacherPortalError ||
     error instanceof AttendanceError ||
     error instanceof NotificationError ||
-    error instanceof SalaryError
+    error instanceof SalaryError ||
+    error instanceof StudentAttendanceError
   ) {
     res.status(error.statusCode).json({ error: error.message });
     return;
