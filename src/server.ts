@@ -17,10 +17,37 @@ import teacherPortalRouter from "./module/teacher-portal/teacher-portal.routes.j
 const app = express();
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? "http://localhost:3000";
+const MOBILE_ALLOWED_ORIGINS = (process.env.MOBILE_ALLOWED_ORIGINS ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const ALLOWED_ORIGINS = Array.from(
+  new Set([FRONTEND_URL, ...MOBILE_ALLOWED_ORIGINS]),
+);
+
+function isLocalDevOrigin(origin: string): boolean {
+  if (process.env.NODE_ENV === "production") {
+    return false;
+  }
+
+  try {
+    const { hostname } = new URL(origin);
+    return hostname === "localhost" || hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
 
 app.use(
   cors({
-    origin: FRONTEND_URL,
+    origin(origin, callback) {
+      if (!origin || ALLOWED_ORIGINS.includes(origin) || isLocalDevOrigin(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   }),
 );

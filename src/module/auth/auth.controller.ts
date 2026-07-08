@@ -76,7 +76,7 @@ export async function loginHandler(
 
     const { user, token } = await login(parsed.data);
     setAuthCookie(res, token);
-    res.json({ user });
+    res.json({ user, token });
   } catch (error) {
     next(error);
   }
