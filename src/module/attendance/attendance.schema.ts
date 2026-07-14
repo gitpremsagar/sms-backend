@@ -28,7 +28,12 @@ export const declareHolidaySchema = z.object({
   label: z.string().min(1).optional(),
 });
 
+export const qrPunchSchema = z.object({
+  token: z.string().min(1),
+});
+
 export type RegisterQuery = z.infer<typeof registerQuerySchema>;
 export type TeacherDateInput = z.infer<typeof teacherDateSchema>;
 export type BulkPunchInput = z.infer<typeof bulkPunchSchema>;
 export type DeclareHolidayInput = z.infer<typeof declareHolidaySchema>;
+export type QrPunchInput = z.infer<typeof qrPunchSchema>;

@@ -645,6 +645,22 @@ export async function removeHoliday(date: string): Promise<void> {
   });
 }
 
+export function getWallQrUrl(): { url: string } {
+  const secret = process.env.ATTENDANCE_QR_SECRET;
+  if (!secret) {
+    throw new AttendanceError("Attendance QR secret is not configured", 500);
+  }
+
+  const baseUrl = (
+    process.env.PUBLIC_API_BASE_URL ??
+    `http://localhost:${process.env.PORT || 3200}`
+  ).replace(/\/$/, "");
+
+  const url = new URL(`${baseUrl}/api/teacher/attendance/qr-punch`);
+  url.searchParams.set("token", secret);
+  return { url: url.toString() };
+}
+
 export class AttendanceError extends Error {
   constructor(
     message: string,

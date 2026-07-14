@@ -8,6 +8,7 @@ import {
   bulkPunchOutHandler,
   declareHolidayHandler,
   getRegisterHandler,
+  getWallQrHandler,
   markAbsentHandler,
   punchInHandler,
   punchOutHandler,
@@ -20,6 +21,7 @@ const attendanceRouter = Router();
 attendanceRouter.use(authenticate, requireRole(Role.ADMIN));
 
 attendanceRouter.get("/register", getRegisterHandler);
+attendanceRouter.get("/wall-qr", getWallQrHandler);
 attendanceRouter.post("/punch-in", punchInHandler);
 attendanceRouter.post("/punch-out", punchOutHandler);
 attendanceRouter.post("/bulk-punch-in", bulkPunchInHandler);

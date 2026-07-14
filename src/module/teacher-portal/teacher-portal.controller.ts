@@ -1,6 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
 import { objectIdParamSchema } from "../../lib/object-id.js";
-import { registerQuerySchema } from "../attendance/attendance.schema.js";
+import {
+  qrPunchSchema,
+  registerQuerySchema,
+} from "../attendance/attendance.schema.js";
 import {
   AttendanceError,
   NotificationError,
@@ -12,6 +15,7 @@ import {
   getMySalary,
   listMyClasses,
   markMyNotificationRead,
+  qrPunch,
 } from "./teacher-portal.service.js";
 import { StudentAttendanceError } from "../student-attendance/student-attendance.service.js";
 
@@ -40,6 +44,32 @@ export async function getMyAttendanceRegisterHandler(
       parsed.data.month,
     );
     res.json({ register });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function qrPunchHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const parsed = qrPunchSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid request body" });
+      return;
+    }
+
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+
+    const result = await qrPunch(userId, parsed.data.token);
+    res.json(result);
   } catch (error) {
     next(error);
   }

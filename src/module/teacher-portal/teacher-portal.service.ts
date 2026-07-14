@@ -2,6 +2,9 @@ import prisma from "../../lib/prisma.js";
 import {
   AttendanceError,
   getRegisterForTeacher,
+  punchIn,
+  punchOut,
+  type AttendanceRecordDto,
   type RegisterDto,
 } from "../attendance/attendance.service.js";
 import {
@@ -15,6 +18,34 @@ import {
   markNotificationRead,
   type TeacherNotificationDto,
 } from "../notification/notification.service.js";
+
+export type QrPunchAction = "PUNCH_IN" | "PUNCH_OUT" | "ALREADY_COMPLETE";
+
+export type QrPunchResult = {
+  action: QrPunchAction;
+  date: string;
+  record: AttendanceRecordDto;
+};
+
+function todayDateString(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function toAttendanceRecordDto(record: {
+  status: AttendanceRecordDto["status"];
+  punchIn: Date | null;
+  punchOut: Date | null;
+}): AttendanceRecordDto {
+  return {
+    status: record.status,
+    punchIn: record.punchIn?.toISOString() ?? null,
+    punchOut: record.punchOut?.toISOString() ?? null,
+  };
+}
 
 export type TeacherClassSummaryDto = {
   id: string;
@@ -41,6 +72,39 @@ export async function getMyAttendanceRegister(
   month: number,
 ): Promise<RegisterDto> {
   return getRegisterForTeacher(userId, year, month);
+}
+
+export async function qrPunch(
+  userId: string,
+  token: string,
+): Promise<QrPunchResult> {
+  const secret = process.env.ATTENDANCE_QR_SECRET;
+  if (!secret || token !== secret) {
+    throw new TeacherPortalError("Invalid attendance QR code", 403);
+  }
+
+  const teacherId = await getTeacherDetailId(userId);
+  const date = todayDateString();
+
+  const existing = await prisma.teacherAttendance.findUnique({
+    where: { teacherId_date: { teacherId, date } },
+  });
+
+  if (!existing) {
+    const record = await punchIn(teacherId, date);
+    return { action: "PUNCH_IN", date, record };
+  }
+
+  if (existing.punchIn && !existing.punchOut) {
+    const record = await punchOut(teacherId, date);
+    return { action: "PUNCH_OUT", date, record };
+  }
+
+  return {
+    action: "ALREADY_COMPLETE",
+    date,
+    record: toAttendanceRecordDto(existing),
+  };
 }
 
 export async function getMySalary(

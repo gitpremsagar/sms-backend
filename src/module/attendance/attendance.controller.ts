@@ -12,6 +12,7 @@ import {
   bulkPunchOut,
   declareHoliday,
   getRegister,
+  getWallQrUrl,
   markAbsent,
   punchIn,
   punchOut,
@@ -34,6 +35,19 @@ export async function getRegisterHandler(
 
     const register = await getRegister(parsed.data.year, parsed.data.month);
     res.json({ register });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getWallQrHandler(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const wallQr = getWallQrUrl();
+    res.json(wallQr);
   } catch (error) {
     next(error);
   }

@@ -17,6 +17,7 @@ import {
   getMySalaryHandler,
   listMyClassesHandler,
   markMyNotificationReadHandler,
+  qrPunchHandler,
   teacherPortalErrorHandler,
 } from "./teacher-portal.controller.js";
 
@@ -25,6 +26,7 @@ const teacherPortalRouter = Router();
 teacherPortalRouter.use(authenticate, requireRole(Role.TEACHER));
 
 teacherPortalRouter.get("/attendance/register", getMyAttendanceRegisterHandler);
+teacherPortalRouter.post("/attendance/qr-punch", qrPunchHandler);
 teacherPortalRouter.get("/salary", getMySalaryHandler);
 teacherPortalRouter.get("/classes", listMyClassesHandler);
 teacherPortalRouter.get("/classes/:id", getMyClassByIdHandler);
