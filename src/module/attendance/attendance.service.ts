@@ -1,5 +1,6 @@
 import { AttendanceStatus, Role } from "@prisma/client";
 import prisma from "../../lib/prisma.js";
+import { schoolWallClockNow } from "../../lib/school-time.js";
 import {
   type MonthlySummary,
   computeMonthlySummary,
@@ -61,18 +62,7 @@ export function combineDateAndTime(date: string, time: string): Date {
 }
 
 function wallClockNow(): Date {
-  const now = new Date();
-  return new Date(
-    Date.UTC(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      now.getHours(),
-      now.getMinutes(),
-      now.getSeconds(),
-      now.getMilliseconds(),
-    ),
-  );
+  return schoolWallClockNow();
 }
 
 function getDaysInMonth(year: number, month: number): number {

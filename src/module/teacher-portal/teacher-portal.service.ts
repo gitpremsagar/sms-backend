@@ -1,4 +1,5 @@
 import prisma from "../../lib/prisma.js";
+import { schoolTodayDateString } from "../../lib/school-time.js";
 import {
   AttendanceError,
   getRegisterForTeacher,
@@ -26,14 +27,6 @@ export type QrPunchResult = {
   date: string;
   record: AttendanceRecordDto;
 };
-
-function todayDateString(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 function toAttendanceRecordDto(record: {
   status: AttendanceRecordDto["status"];
@@ -84,7 +77,7 @@ export async function qrPunch(
   }
 
   const teacherId = await getTeacherDetailId(userId);
-  const date = todayDateString();
+  const date = schoolTodayDateString();
 
   const existing = await prisma.teacherAttendance.findUnique({
     where: { teacherId_date: { teacherId, date } },

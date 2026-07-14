@@ -1,5 +1,6 @@
 import { Role, StudentAttendanceStatus } from "@prisma/client";
 import prisma from "../../lib/prisma.js";
+import { schoolTodayDateString } from "../../lib/school-time.js";
 import {
   isHolidayDate,
   isSunday,
@@ -110,8 +111,7 @@ export function recordKey(studentId: string, date: string): string {
 }
 
 function todayDateString(): string {
-  const now = new Date();
-  return formatDate(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  return schoolTodayDateString();
 }
 
 function assertNotFutureDate(date: string): void {
