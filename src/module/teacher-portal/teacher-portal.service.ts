@@ -30,11 +30,13 @@ export type QrPunchResult = {
 
 function toAttendanceRecordDto(record: {
   status: AttendanceRecordDto["status"];
+  absenceReason?: string | null;
   punchIn: Date | null;
   punchOut: Date | null;
 }): AttendanceRecordDto {
   return {
     status: record.status,
+    absenceReason: record.absenceReason ?? null,
     punchIn: record.punchIn?.toISOString() ?? null,
     punchOut: record.punchOut?.toISOString() ?? null,
   };

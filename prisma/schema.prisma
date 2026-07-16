@@ -125,6 +125,7 @@ model StudentFeePayment {
   month              Int
   status             FeePaymentStatus @default(UNPAID)
   amount             Float            @default(0)
+  paymentDate        DateTime?
   updatedById        String?          @db.ObjectId
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
@@ -155,14 +156,15 @@ model TeacherDetail {
 }
 
 model TeacherAttendance {
-  id        String           @id @default(auto()) @map("_id") @db.ObjectId
-  teacherId String           @db.ObjectId
-  date      String
-  status    AttendanceStatus
-  punchIn   DateTime?
-  punchOut  DateTime?
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  teacherId      String           @db.ObjectId
+  date           String
+  status         AttendanceStatus
+  absenceReason  String?
+  punchIn        DateTime?
+  punchOut       DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   teacher TeacherDetail @relation(fields: [teacherId], references: [id])
 

@@ -8,6 +8,7 @@ import {
 
 export type AttendanceRecordDto = {
   status: AttendanceStatus;
+  absenceReason: string | null;
   punchIn: string | null;
   punchOut: string | null;
 };
@@ -134,11 +135,13 @@ function recordKey(teacherId: string, date: string): string {
 
 function toRecordDto(record: {
   status: AttendanceStatus;
+  absenceReason?: string | null;
   punchIn: Date | null;
   punchOut: Date | null;
 }): AttendanceRecordDto {
   return {
     status: record.status,
+    absenceReason: record.absenceReason ?? null,
     punchIn: record.punchIn?.toISOString() ?? null,
     punchOut: record.punchOut?.toISOString() ?? null,
   };
@@ -368,7 +371,11 @@ export async function punchOut(
   return toRecordDto(record);
 }
 
-export async function markAbsent(teacherId: string, date: string): Promise<AttendanceRecordDto> {
+export async function markAbsent(
+  teacherId: string,
+  date: string,
+  reason: string,
+): Promise<AttendanceRecordDto> {
   await assertTeacherExists(teacherId);
   await assertNotHoliday(date);
 
@@ -386,9 +393,11 @@ export async function markAbsent(teacherId: string, date: string): Promise<Atten
       teacherId,
       date,
       status: AttendanceStatus.ABSENT,
+      absenceReason: reason,
     },
     update: {
       status: AttendanceStatus.ABSENT,
+      absenceReason: reason,
       punchIn: null,
       punchOut: null,
     },

@@ -12,6 +12,10 @@ export const teacherDateSchema = z.object({
   date: dateSchema,
 });
 
+export const markAbsentSchema = teacherDateSchema.extend({
+  reason: z.string().trim().min(1).max(500),
+});
+
 const timeSchema = z.string().regex(/^\d{2}:\d{2}$/);
 
 export const punchSchema = teacherDateSchema.extend({
@@ -34,6 +38,7 @@ export const qrPunchSchema = z.object({
 
 export type RegisterQuery = z.infer<typeof registerQuerySchema>;
 export type TeacherDateInput = z.infer<typeof teacherDateSchema>;
+export type MarkAbsentInput = z.infer<typeof markAbsentSchema>;
 export type BulkPunchInput = z.infer<typeof bulkPunchSchema>;
 export type DeclareHolidayInput = z.infer<typeof declareHolidaySchema>;
 export type QrPunchInput = z.infer<typeof qrPunchSchema>;

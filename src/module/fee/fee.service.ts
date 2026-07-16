@@ -15,6 +15,7 @@ export type FeePaymentCellStatus = "PAID" | "PARTIAL" | "UNPAID" | "UPCOMING";
 export type FeePaymentCell = {
   status: FeePaymentCellStatus;
   amount: number;
+  paymentDate: string | null;
 };
 
 export type FeeRegisterStudent = {
@@ -84,6 +85,13 @@ type StudentWithClass = {
   class: { id: string; className: string; monthlyFee: number };
 };
 
+type PaymentRecord = {
+  status: FeePaymentStatus;
+  amount: number;
+  paymentDate: Date | null;
+  updatedAt: Date;
+};
+
 function toCellStatus(status: FeePaymentStatus | undefined): FeePaymentCellStatus {
   if (status === FeePaymentStatus.PAID) {
     return "PAID";
@@ -94,10 +102,33 @@ function toCellStatus(status: FeePaymentStatus | undefined): FeePaymentCellStatu
   return "UNPAID";
 }
 
+function resolvePaymentDate(
+  status: FeePaymentCellStatus,
+  record: PaymentRecord | undefined,
+): string | null {
+  if (status !== "PAID" && status !== "PARTIAL") {
+    return null;
+  }
+
+  const date = record?.paymentDate ?? record?.updatedAt;
+  return date ? date.toISOString() : null;
+}
+
+function toPaymentCell(
+  record: PaymentRecord | undefined,
+): FeePaymentCell {
+  const status = toCellStatus(record?.status);
+  return {
+    status,
+    amount: record?.amount ?? 0,
+    paymentDate: resolvePaymentDate(status, record),
+  };
+}
+
 function buildPaymentMap(
   student: StudentWithClass,
   financialYearStart: number,
-  paymentRecords: Map<string, { status: FeePaymentStatus; amount: number }>,
+  paymentRecords: Map<string, PaymentRecord>,
   today: Date,
 ): Record<number, FeePaymentCell> {
   const payments: Record<number, FeePaymentCell> = {};
@@ -106,15 +137,11 @@ function buildPaymentMap(
     const key = `${student.id}:${financialYearStart}:${month}`;
 
     if (!isMonthDue(financialYearStart, month, today)) {
-      payments[month] = { status: "UPCOMING", amount: 0 };
+      payments[month] = { status: "UPCOMING", amount: 0, paymentDate: null };
       continue;
     }
 
-    const record = paymentRecords.get(key);
-    payments[month] = {
-      status: toCellStatus(record?.status),
-      amount: record?.amount ?? 0,
-    };
+    payments[month] = toPaymentCell(paymentRecords.get(key));
   }
 
   return payments;
@@ -123,24 +150,20 @@ function buildPaymentMap(
 function buildDetailedPaymentMap(
   student: StudentWithClass,
   financialYearStart: number,
-  paymentRecords: Map<string, { status: FeePaymentStatus; amount: number }>,
+  paymentRecords: Map<string, PaymentRecord>,
   today: Date,
 ): Record<number, FeePaymentCell> {
   const payments: Record<number, FeePaymentCell> = {};
 
   for (const { month } of buildFinancialYearMonths(financialYearStart)) {
     const key = `${student.id}:${financialYearStart}:${month}`;
-    const record = paymentRecords.get(key);
 
     if (!isMonthDue(financialYearStart, month, today)) {
-      payments[month] = { status: "UPCOMING", amount: 0 };
+      payments[month] = { status: "UPCOMING", amount: 0, paymentDate: null };
       continue;
     }
 
-    payments[month] = {
-      status: toCellStatus(record?.status),
-      amount: record?.amount ?? 0,
-    };
+    payments[month] = toPaymentCell(paymentRecords.get(key));
   }
 
   return payments;
@@ -161,7 +184,7 @@ async function loadStudents(classId?: string): Promise<StudentWithClass[]> {
 async function loadPaymentRecords(
   financialYearStart: number,
   studentIds: string[],
-): Promise<Map<string, { status: FeePaymentStatus; amount: number }>> {
+): Promise<Map<string, PaymentRecord>> {
   if (studentIds.length === 0) {
     return new Map();
   }
@@ -171,13 +194,25 @@ async function loadPaymentRecords(
       financialYearStart,
       studentId: { in: studentIds },
     },
-    select: { studentId: true, month: true, status: true, amount: true },
+    select: {
+      studentId: true,
+      month: true,
+      status: true,
+      amount: true,
+      paymentDate: true,
+      updatedAt: true,
+    },
   });
 
   return new Map(
     records.map((record) => [
       `${record.studentId}:${financialYearStart}:${record.month}`,
-      { status: record.status, amount: record.amount },
+      {
+        status: record.status,
+        amount: record.amount,
+        paymentDate: record.paymentDate,
+        updatedAt: record.updatedAt,
+      },
     ]),
   );
 }
@@ -381,19 +416,23 @@ export async function updateFeePayment(
   let monthsToUpdate: number[];
   let status: FeePaymentStatus;
   let storedAmount: number;
+  let paymentDate: Date | null;
 
   if (input.amount >= monthlyFee) {
     monthsToUpdate = getMonthsThrough(input.month);
     status = FeePaymentStatus.PAID;
     storedAmount = monthlyFee;
+    paymentDate = new Date();
   } else if (input.amount > 0) {
     monthsToUpdate = [input.month];
     status = FeePaymentStatus.PARTIAL;
     storedAmount = input.amount;
+    paymentDate = new Date();
   } else {
     monthsToUpdate = getMonthsFrom(input.month);
     status = FeePaymentStatus.UNPAID;
     storedAmount = 0;
+    paymentDate = null;
   }
 
   if (monthsToUpdate.length === 0) {
@@ -416,11 +455,13 @@ export async function updateFeePayment(
           month,
           status,
           amount: storedAmount,
+          paymentDate,
           updatedById: updatedByUserId,
         },
         update: {
           status,
           amount: storedAmount,
+          paymentDate,
           updatedById: updatedByUserId,
         },
       }),

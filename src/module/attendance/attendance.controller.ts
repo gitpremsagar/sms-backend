@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import {
   bulkPunchSchema,
   declareHolidaySchema,
+  markAbsentSchema,
   punchSchema,
   registerQuerySchema,
   teacherDateSchema,
@@ -147,14 +148,18 @@ export async function markAbsentHandler(
   next: NextFunction,
 ) {
   try {
-    const parsed = teacherDateSchema.safeParse(req.body);
+    const parsed = markAbsentSchema.safeParse(req.body);
 
     if (!parsed.success) {
       res.status(400).json({ error: "Invalid request body" });
       return;
     }
 
-    const record = await markAbsent(parsed.data.teacherId, parsed.data.date);
+    const record = await markAbsent(
+      parsed.data.teacherId,
+      parsed.data.date,
+      parsed.data.reason,
+    );
     res.json({ record });
   } catch (error) {
     next(error);
