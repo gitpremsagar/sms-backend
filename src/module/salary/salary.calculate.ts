@@ -1,4 +1,4 @@
-import { AttendanceStatus } from "@prisma/client";
+import { schoolTodayDateString } from "../../lib/school-time.js";
 import {
   type TeacherSchedule,
   classifyDay,
@@ -43,58 +43,46 @@ export function computeSalaryBreakdown(input: {
   month: number;
   daysInMonth: number;
   holidays: string[];
+  /** YYYY-MM-DD in school timezone; defaults to today. */
+  asOfDate?: string;
 }): SalaryBreakdown {
   const holidaySet = new Set(input.holidays);
+  const asOfDate = input.asOfDate ?? schoolTodayDateString();
   let workingDays = 0;
   let fullPresentDays = 0;
   let halfDays = 0;
-  let explicitAbsentDays = 0;
+  let absentDays = 0;
   let unmarkedDays = 0;
 
   for (let day = 1; day <= input.daysInMonth; day++) {
     const date = formatDate(input.year, input.month, day);
-    if (holidaySet.has(date)) {
+    const isHoliday = holidaySet.has(date);
+    if (isHoliday) {
       continue;
     }
 
     workingDays++;
     const record = input.records[recordKey(input.teacherId, date)];
-
-    if (!record) {
-      unmarkedDays++;
-      continue;
-    }
-
-    if (record.status === AttendanceStatus.ABSENT) {
-      explicitAbsentDays++;
-      continue;
-    }
-
-    if (record.status === AttendanceStatus.IN_PROGRESS) {
-      unmarkedDays++;
-      continue;
-    }
-
     const metrics = classifyDay(record, input.schedule, false);
 
-    if (metrics.isAbsent) {
-      explicitAbsentDays++;
-    } else if (metrics.isHalfDay) {
+    if (metrics.isHalfDay) {
       halfDays++;
     } else if (metrics.isPresent) {
       fullPresentDays++;
-    } else {
+    } else if (metrics.isAbsent) {
+      absentDays++;
+    } else if (date <= asOfDate) {
+      // Future unmarked days are not absences yet — match attendance register.
       unmarkedDays++;
     }
   }
 
-  const absentDays = explicitAbsentDays + unmarkedDays;
   const dailyRate =
-    input.monthlySalary > 0 && workingDays > 0
-      ? roundCurrency(input.monthlySalary / workingDays)
-      : 0;
+    input.monthlySalary > 0 ? roundCurrency(input.monthlySalary / 30) : 0;
+  const halfDayRate = roundCurrency(dailyRate / 2);
+  // Unmarked past/today days deduct like absences; half days deduct half.
   const deductions = roundCurrency(
-    absentDays * dailyRate + halfDays * 0.5 * dailyRate,
+    (absentDays + unmarkedDays) * dailyRate + halfDays * halfDayRate,
   );
   const calculatedSalary = roundCurrency(
     Math.max(0, input.monthlySalary - deductions),
