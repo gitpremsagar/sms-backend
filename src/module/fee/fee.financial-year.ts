@@ -81,6 +81,31 @@ export function isMonthDue(
   return monthIndex <= currentIndex;
 }
 
+/** True when the FY month is on/after admission, or when admission is unset. */
+export function isMonthOnOrAfterAdmission(
+  financialYearStart: number,
+  month: number,
+  admissionDate: Date | null | undefined,
+): boolean {
+  if (!admissionDate) {
+    return true;
+  }
+
+  const cellYear = resolveCalendarYear(financialYearStart, month);
+  const admissionYear = admissionDate.getFullYear();
+  const admissionMonth = admissionDate.getMonth() + 1;
+
+  if (cellYear > admissionYear) {
+    return true;
+  }
+
+  if (cellYear < admissionYear) {
+    return false;
+  }
+
+  return month >= admissionMonth;
+}
+
 export function isCurrentFyMonth(
   financialYearStart: number,
   month: number,

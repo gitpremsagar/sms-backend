@@ -7,6 +7,7 @@ import {
   getMonthsThrough,
   isCurrentFyMonth,
   isMonthDue,
+  isMonthOnOrAfterAdmission,
 } from "./fee.financial-year.js";
 import type { UpdateFeePaymentInput } from "./fee.schema.js";
 
@@ -82,6 +83,7 @@ type StudentWithClass = {
   id: string;
   studentRollNumber: string;
   classId: string;
+  admissionDate: Date | null;
   user: { name: string };
   class: { id: string; className: string; monthlyFee: number; kind: ClassKind };
 };
@@ -137,7 +139,10 @@ function buildPaymentMap(
   for (const { month } of buildFinancialYearMonths(financialYearStart)) {
     const key = `${student.id}:${financialYearStart}:${month}`;
 
-    if (!isMonthDue(financialYearStart, month, today)) {
+    if (
+      !isMonthDue(financialYearStart, month, today) ||
+      !isMonthOnOrAfterAdmission(financialYearStart, month, student.admissionDate)
+    ) {
       payments[month] = { status: "UPCOMING", amount: 0, paymentDate: null };
       continue;
     }
@@ -159,7 +164,10 @@ function buildDetailedPaymentMap(
   for (const { month } of buildFinancialYearMonths(financialYearStart)) {
     const key = `${student.id}:${financialYearStart}:${month}`;
 
-    if (!isMonthDue(financialYearStart, month, today)) {
+    if (
+      !isMonthDue(financialYearStart, month, today) ||
+      !isMonthOnOrAfterAdmission(financialYearStart, month, student.admissionDate)
+    ) {
       payments[month] = { status: "UPCOMING", amount: 0, paymentDate: null };
       continue;
     }
@@ -174,7 +182,11 @@ function buildDetailedPaymentMap(
 async function loadStudents(classId?: string): Promise<StudentWithClass[]> {
   return prisma.studentDetail.findMany({
     ...(classId ? { where: { classId } } : {}),
-    include: {
+    select: {
+      id: true,
+      studentRollNumber: true,
+      classId: true,
+      admissionDate: true,
       user: { select: { name: true } },
       class: { select: { id: true, className: true, monthlyFee: true, kind: true } },
     },
@@ -399,11 +411,28 @@ export async function updateFeePayment(
 ): Promise<void> {
   const student = await prisma.studentDetail.findUnique({
     where: { id: input.studentId },
-    include: { class: { select: { monthlyFee: true } } },
+    select: {
+      id: true,
+      admissionDate: true,
+      class: { select: { monthlyFee: true } },
+    },
   });
 
   if (!student) {
     throw new FeeError("Student not found", 404);
+  }
+
+  if (
+    !isMonthOnOrAfterAdmission(
+      input.financialYearStart,
+      input.month,
+      student.admissionDate,
+    )
+  ) {
+    throw new FeeError(
+      "Fee is not applicable before the student's admission date",
+      400,
+    );
   }
 
   const monthlyFee = student.class.monthlyFee;
@@ -436,6 +465,14 @@ export async function updateFeePayment(
     storedAmount = 0;
     paymentDate = null;
   }
+
+  monthsToUpdate = monthsToUpdate.filter((month) =>
+    isMonthOnOrAfterAdmission(
+      input.financialYearStart,
+      month,
+      student.admissionDate,
+    ),
+  );
 
   if (monthsToUpdate.length === 0) {
     throw new FeeError("Invalid month for financial year", 400);
