@@ -1,3 +1,4 @@
+import { ClassKind } from "@prisma/client";
 import prisma from "../../lib/prisma.js";
 import type { CreateClassInput, UpdateClassInput } from "./class.schema.js";
 
@@ -7,6 +8,7 @@ export type ClassDto = {
   teacherId: string;
   teacherName: string;
   monthlyFee: number;
+  kind: ClassKind;
   createdAt: string;
 };
 
@@ -15,6 +17,7 @@ function toClassDto(cls: {
   className: string;
   teacherId: string;
   monthlyFee: number;
+  kind: ClassKind;
   createdAt: Date;
   teacher: { user: { name: string } };
 }): ClassDto {
@@ -24,12 +27,14 @@ function toClassDto(cls: {
     teacherId: cls.teacherId,
     teacherName: cls.teacher.user.name,
     monthlyFee: cls.monthlyFee,
+    kind: cls.kind,
     createdAt: cls.createdAt.toISOString(),
   };
 }
 
-export async function listClasses(): Promise<ClassDto[]> {
+export async function listClasses(kind?: ClassKind): Promise<ClassDto[]> {
   const classes = await prisma.class.findMany({
+    ...(kind ? { where: { kind } } : {}),
     include: {
       teacher: {
         include: { user: true },
@@ -63,6 +68,7 @@ export async function createClass(input: CreateClassInput): Promise<ClassDto> {
       className: input.className,
       teacherId: input.teacherId,
       monthlyFee: input.monthlyFee ?? 0,
+      kind: input.kind,
     },
     include: {
       teacher: {
@@ -127,6 +133,7 @@ export async function updateClass(
     className?: string;
     teacherId?: string;
     monthlyFee?: number;
+    kind?: ClassKind;
   } = {};
 
   if (input.className !== undefined) {
@@ -139,6 +146,10 @@ export async function updateClass(
 
   if (input.monthlyFee !== undefined) {
     data.monthlyFee = input.monthlyFee;
+  }
+
+  if (input.kind !== undefined) {
+    data.kind = input.kind;
   }
 
   const schoolClass = await prisma.class.update({

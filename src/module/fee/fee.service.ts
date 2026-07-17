@@ -1,4 +1,4 @@
-import { FeePaymentStatus, Role } from "@prisma/client";
+import { ClassKind, FeePaymentStatus, Role } from "@prisma/client";
 import prisma from "../../lib/prisma.js";
 import {
   buildFinancialYearMonths,
@@ -24,6 +24,7 @@ export type FeeRegisterStudent = {
   rollNumber: string;
   classId: string;
   className: string;
+  classKind: ClassKind;
   monthlyFee: number;
   payments: Record<number, FeePaymentCell>;
 };
@@ -33,7 +34,7 @@ export type FeeRegisterDto = {
   financialYearLabel: string;
   months: { month: number; label: string; calendarYear: number }[];
   students: FeeRegisterStudent[];
-  classes: { id: string; className: string; monthlyFee: number }[];
+  classes: { id: string; className: string; monthlyFee: number; kind: ClassKind }[];
 };
 
 export type FeeReportMonthSummary = {
@@ -82,7 +83,7 @@ type StudentWithClass = {
   studentRollNumber: string;
   classId: string;
   user: { name: string };
-  class: { id: string; className: string; monthlyFee: number };
+  class: { id: string; className: string; monthlyFee: number; kind: ClassKind };
 };
 
 type PaymentRecord = {
@@ -175,7 +176,7 @@ async function loadStudents(classId?: string): Promise<StudentWithClass[]> {
     ...(classId ? { where: { classId } } : {}),
     include: {
       user: { select: { name: true } },
-      class: { select: { id: true, className: true, monthlyFee: true } },
+      class: { select: { id: true, className: true, monthlyFee: true, kind: true } },
     },
     orderBy: [{ class: { className: "asc" } }, { studentRollNumber: "asc" }],
   });
@@ -219,7 +220,7 @@ async function loadPaymentRecords(
 
 async function loadClasses() {
   return prisma.class.findMany({
-    select: { id: true, className: true, monthlyFee: true },
+    select: { id: true, className: true, monthlyFee: true, kind: true },
     orderBy: { className: "asc" },
   });
 }
@@ -247,6 +248,7 @@ export async function getFeeRegister(
       rollNumber: student.studentRollNumber,
       classId: student.classId,
       className: student.class.className,
+      classKind: student.class.kind,
       monthlyFee: student.class.monthlyFee,
       payments: buildPaymentMap(
         student,

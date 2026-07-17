@@ -1,6 +1,10 @@
 import type { Request, Response, NextFunction } from "express";
 import { objectIdParamSchema } from "../../lib/object-id.js";
-import { createClassSchema, updateClassSchema } from "./class.schema.js";
+import {
+  createClassSchema,
+  listClassesQuerySchema,
+  updateClassSchema,
+} from "./class.schema.js";
 import {
   ClassError,
   createClass,
@@ -11,12 +15,19 @@ import {
 } from "./class.service.js";
 
 export async function listClassesHandler(
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction,
 ) {
   try {
-    const classes = await listClasses();
+    const parsed = listClassesQuerySchema.safeParse(req.query);
+
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid query parameters" });
+      return;
+    }
+
+    const classes = await listClasses(parsed.data.kind);
     res.json({ classes });
   } catch (error) {
     next(error);

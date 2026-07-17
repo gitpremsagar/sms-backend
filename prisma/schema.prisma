@@ -37,6 +37,11 @@ enum StudentAttendanceStatus {
   ABSENT
 }
 
+enum ClassKind {
+  SCHOOL
+  COACHING
+}
+
 model User {
   id            String         @id @default(auto()) @map("_id") @db.ObjectId
   name          String
@@ -59,17 +64,19 @@ model User {
 }
 
 model Class {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  className  String   @unique
-  teacherId  String   @db.ObjectId
-  monthlyFee Float    @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  className  String    @unique
+  teacherId  String    @db.ObjectId
+  monthlyFee Float     @default(0)
+  kind       ClassKind @default(SCHOOL)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   teacher  TeacherDetail   @relation(fields: [teacherId], references: [id])
   students StudentDetail[]
 
   @@index([teacherId])
+  @@index([kind])
 }
 
 model StudentDetail {
