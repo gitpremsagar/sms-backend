@@ -439,34 +439,69 @@ export async function updateFeePayment(
     throw new FeeError("Invalid month for financial year", 400);
   }
 
-  await prisma.$transaction(
-    monthsToUpdate.map((month) =>
-      prisma.studentFeePayment.upsert({
-        where: {
-          studentId_financialYearStart_month: {
+  await prisma.$transaction(async (tx) => {
+    const existingRecords = await tx.studentFeePayment.findMany({
+      where: {
+        studentId: input.studentId,
+        financialYearStart: input.financialYearStart,
+        month: { in: monthsToUpdate },
+      },
+      select: {
+        id: true,
+        month: true,
+        status: true,
+        paymentDate: true,
+      },
+    });
+
+    const existingByMonth = new Map(
+      existingRecords.map((record) => [record.month, record]),
+    );
+
+    for (const month of monthsToUpdate) {
+      const existing = existingByMonth.get(month);
+
+      // Already-paid prior months keep their original payment data.
+      if (
+        status === FeePaymentStatus.PAID &&
+        month !== input.month &&
+        existing?.status === FeePaymentStatus.PAID
+      ) {
+        continue;
+      }
+
+      if (!existing) {
+        await tx.studentFeePayment.create({
+          data: {
             studentId: input.studentId,
             financialYearStart: input.financialYearStart,
             month,
+            status,
+            amount: storedAmount,
+            paymentDate,
+            updatedById: updatedByUserId,
           },
-        },
-        create: {
-          studentId: input.studentId,
-          financialYearStart: input.financialYearStart,
-          month,
+        });
+        continue;
+      }
+
+      // Preserve an existing paymentDate; only set one when missing (or clear on unpaid).
+      const nextPaymentDate =
+        status === FeePaymentStatus.UNPAID
+          ? null
+          : (existing.paymentDate ?? paymentDate);
+
+      await tx.studentFeePayment.update({
+        where: { id: existing.id },
+        data: {
           status,
           amount: storedAmount,
-          paymentDate,
+          paymentDate: nextPaymentDate,
           updatedById: updatedByUserId,
         },
-        update: {
-          status,
-          amount: storedAmount,
-          paymentDate,
-          updatedById: updatedByUserId,
-        },
-      }),
-    ),
-  );
+      });
+    }
+  });
 }
 
 export async function assertFeeCollector(userId: string, role: Role) {
