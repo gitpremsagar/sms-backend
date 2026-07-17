@@ -9,7 +9,7 @@ const entrySchema = z.object({
 });
 
 export const registerQuerySchema = z.object({
-  classId: z.string().min(1),
+  classId: z.string().min(1).optional(),
   year: z.coerce.number().int().min(2000).max(2100),
   month: z.coerce.number().int().min(1).max(12),
 });

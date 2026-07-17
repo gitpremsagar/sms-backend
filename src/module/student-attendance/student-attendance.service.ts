@@ -18,6 +18,13 @@ export type RegisterStudentDto = {
   id: string;
   name: string;
   rollNumber: string;
+  isStudying: boolean;
+  classId: string;
+  className: string;
+};
+
+export type GetRegisterOptions = {
+  includeArchived?: boolean;
 };
 
 export type StudentMonthlySummary = {
@@ -26,7 +33,7 @@ export type StudentMonthlySummary = {
 };
 
 export type StudentAttendanceRegisterDto = {
-  classId: string;
+  classId: string | null;
   className: string;
   classes: { id: string; className: string }[];
   students: RegisterStudentDto[];
@@ -139,12 +146,15 @@ async function loadClasses(): Promise<{ id: string; className: string }[]> {
   });
 }
 
-async function loadClassStudents(classId: string) {
+async function loadClassStudents(
+  classId: string,
+  options: { includeArchived?: boolean } = {},
+) {
   const schoolClass = await prisma.class.findUnique({
     where: { id: classId },
     include: {
       students: {
-        where: { isStudying: true },
+        ...(options.includeArchived ? {} : { where: { isStudying: true } }),
         include: { user: { select: { name: true } } },
         orderBy: { studentRollNumber: "asc" },
       },
@@ -156,6 +166,63 @@ async function loadClassStudents(classId: string) {
   }
 
   return schoolClass;
+}
+
+async function loadRegisterStudents(
+  classId: string | undefined,
+  options: { includeArchived?: boolean } = {},
+): Promise<{
+  classId: string | null;
+  className: string;
+  students: {
+    id: string;
+    studentRollNumber: string;
+    isStudying: boolean;
+    classId: string;
+    className: string;
+    name: string;
+  }[];
+}> {
+  if (classId) {
+    const schoolClass = await loadClassStudents(classId, options);
+    return {
+      classId: schoolClass.id,
+      className: schoolClass.className,
+      students: schoolClass.students.map((student) => ({
+        id: student.id,
+        studentRollNumber: student.studentRollNumber,
+        isStudying: student.isStudying,
+        classId: schoolClass.id,
+        className: schoolClass.className,
+        name: student.user.name,
+      })),
+    };
+  }
+
+  const students = await prisma.studentDetail.findMany({
+    ...(options.includeArchived ? {} : { where: { isStudying: true } }),
+    include: {
+      user: { select: { name: true } },
+      class: { select: { id: true, className: true } },
+    },
+    orderBy: [
+      { class: { className: "asc" } },
+      { studentRollNumber: "asc" },
+    ],
+  });
+
+  return {
+    classId: null,
+    className: "All Classes",
+    students: students.map((student) => ({
+      id: student.id,
+      studentRollNumber: student.studentRollNumber,
+      isStudying: student.isStudying,
+      classId: student.class.id,
+      className: student.class.className,
+      name: student.user.name,
+    })),
+  };
 }
 
 async function getTeacherDetailId(userId: string): Promise<string> {
@@ -246,13 +313,16 @@ function computeStudentSummary(
 }
 
 export async function getRegister(
-  classId: string,
+  classId: string | undefined,
   year: number,
   month: number,
+  options: GetRegisterOptions = {},
 ): Promise<StudentAttendanceRegisterDto> {
-  const schoolClass = await loadClassStudents(classId);
+  const registerStudents = await loadRegisterStudents(classId, {
+    ...(options.includeArchived ? { includeArchived: true } : {}),
+  });
   const { startDate, endDate, daysInMonth } = getMonthDateRange(year, month);
-  const studentIds = schoolClass.students.map((s) => s.id);
+  const studentIds = registerStudents.students.map((s) => s.id);
 
   const [attendanceRecords, holidayData, classes] = await Promise.all([
     studentIds.length > 0
@@ -274,11 +344,16 @@ export async function getRegister(
     };
   }
 
-  const students: RegisterStudentDto[] = schoolClass.students.map((student) => ({
-    id: student.id,
-    name: student.user.name,
-    rollNumber: student.studentRollNumber,
-  }));
+  const students: RegisterStudentDto[] = registerStudents.students.map(
+    (student) => ({
+      id: student.id,
+      name: student.name,
+      rollNumber: student.studentRollNumber,
+      isStudying: student.isStudying,
+      classId: student.classId,
+      className: student.className,
+    }),
+  );
 
   const summaries: Record<string, StudentMonthlySummary> = {};
   for (const student of students) {
@@ -293,8 +368,8 @@ export async function getRegister(
   }
 
   return {
-    classId: schoolClass.id,
-    className: schoolClass.className,
+    classId: registerStudents.classId,
+    className: registerStudents.className,
     classes,
     students,
     records,

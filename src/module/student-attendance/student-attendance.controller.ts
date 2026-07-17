@@ -54,12 +54,15 @@ export async function getRegisterHandler(
       return;
     }
 
-    await assertClassAccess(user.userId, parsed.data.classId, user.role);
+    if (parsed.data.classId) {
+      await assertClassAccess(user.userId, parsed.data.classId, user.role);
+    }
 
     const register = await getRegister(
       parsed.data.classId,
       parsed.data.year,
       parsed.data.month,
+      { includeArchived: true },
     );
     res.json({ register });
   } catch (error) {
