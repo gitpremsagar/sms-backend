@@ -17,6 +17,12 @@ export const feeReportQuerySchema = z.object({
   financialYearStart: z.coerce.number().int().min(2000).max(2100),
 });
 
+export const feeDueNoticesQuerySchema = z.object({
+  financialYearStart: z.coerce.number().int().min(2000).max(2100),
+  throughMonth: fyMonthSchema,
+  classId: z.string().min(1).optional(),
+});
+
 export const updateFeePaymentSchema = z.object({
   studentId: z.string().min(1),
   financialYearStart: z.coerce.number().int().min(2000).max(2100),
@@ -26,4 +32,5 @@ export const updateFeePaymentSchema = z.object({
 
 export type FeeRegisterQuery = z.infer<typeof feeRegisterQuerySchema>;
 export type FeeReportQuery = z.infer<typeof feeReportQuerySchema>;
+export type FeeDueNoticesQuery = z.infer<typeof feeDueNoticesQuerySchema>;
 export type UpdateFeePaymentInput = z.infer<typeof updateFeePaymentSchema>;

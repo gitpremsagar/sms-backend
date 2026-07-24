@@ -15,6 +15,21 @@ const MONTH_LABELS: Record<number, string> = {
   12: "Dec",
 };
 
+const MONTH_LABELS_HI: Record<number, string> = {
+  1: "जनवरी",
+  2: "फरवरी",
+  3: "मार्च",
+  4: "अप्रैल",
+  5: "मई",
+  6: "जून",
+  7: "जुलाई",
+  8: "अगस्त",
+  9: "सितंबर",
+  10: "अक्टूबर",
+  11: "नवंबर",
+  12: "दिसंबर",
+};
+
 export function getFinancialYearStart(date: Date = new Date()): number {
   const month = date.getMonth() + 1;
   const year = date.getFullYear();
@@ -35,6 +50,10 @@ export function resolveCalendarYear(
 
 export function getMonthLabel(month: number): string {
   return MONTH_LABELS[month] ?? String(month);
+}
+
+export function getMonthLabelHi(month: number): string {
+  return MONTH_LABELS_HI[month] ?? String(month);
 }
 
 export function getMonthsThrough(targetMonth: number): number[] {
@@ -121,6 +140,7 @@ export function buildFinancialYearMonths(financialYearStart: number) {
   return FY_MONTHS.map((month) => ({
     month,
     label: getMonthLabel(month),
+    labelHi: getMonthLabelHi(month),
     calendarYear: resolveCalendarYear(financialYearStart, month),
   }));
 }

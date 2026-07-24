@@ -1,12 +1,14 @@
 import type { Request, Response, NextFunction } from "express";
 import { Role } from "@prisma/client";
 import {
+  feeDueNoticesQuerySchema,
   feeRegisterQuerySchema,
   feeReportQuerySchema,
   updateFeePaymentSchema,
 } from "./fee.schema.js";
 import {
   FeeError,
+  getFeeDueNotices,
   getFeeRegister,
   getFeeReport,
   updateFeePayment,
@@ -55,6 +57,35 @@ export async function getFeeReportHandler(
 
     const report = await getFeeReport(parsed.data.financialYearStart);
     res.json({ report });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getFeeDueNoticesHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (req.user?.role !== Role.ADMIN) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+
+    const parsed = feeDueNoticesQuerySchema.safeParse(req.query);
+
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid query parameters" });
+      return;
+    }
+
+    const notices = await getFeeDueNotices(
+      parsed.data.financialYearStart,
+      parsed.data.throughMonth,
+      parsed.data.classId,
+    );
+    res.json({ notices });
   } catch (error) {
     next(error);
   }

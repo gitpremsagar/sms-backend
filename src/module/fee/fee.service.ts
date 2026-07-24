@@ -3,6 +3,8 @@ import prisma from "../../lib/prisma.js";
 import {
   buildFinancialYearMonths,
   formatFinancialYearLabel,
+  getMonthLabel,
+  getMonthLabelHi,
   getMonthsFrom,
   getMonthsThrough,
   isCurrentFyMonth,
@@ -10,6 +12,9 @@ import {
   isMonthOnOrAfterAdmission,
 } from "./fee.financial-year.js";
 import type { UpdateFeePaymentInput } from "./fee.schema.js";
+
+const SCHOOL_NAME = "Sagar Middle School";
+const SCHOOL_NAME_HI = "सागर मिडिल स्कूल";
 
 export type FeePaymentCellStatus = "PAID" | "PARTIAL" | "UNPAID" | "UPCOMING";
 
@@ -77,6 +82,41 @@ export type FeeReportDto = {
     monthSummaries: FeeReportMonthSummary[];
   };
   classes: FeeReportClassBreakdown[];
+};
+
+export type FeeDueNoticeMonth = {
+  month: number;
+  labelEn: string;
+  labelHi: string;
+  dueAmount: number;
+};
+
+export type FeeDueNotice = {
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  classId: string;
+  className: string;
+  dueMonths: FeeDueNoticeMonth[];
+  totalDue: number;
+};
+
+export type FeeDueNoticesDto = {
+  financialYearStart: number;
+  financialYearLabel: string;
+  throughMonth: number;
+  throughMonthLabelEn: string;
+  throughMonthLabelHi: string;
+  schoolName: string;
+  schoolNameHi: string;
+  months: {
+    month: number;
+    label: string;
+    labelHi: string;
+    calendarYear: number;
+  }[];
+  classes: { id: string; className: string; monthlyFee: number; kind: ClassKind }[];
+  notices: FeeDueNotice[];
 };
 
 type StudentWithClass = {
@@ -402,6 +442,97 @@ export async function getFeeReport(
       ),
     },
     classes: classBreakdowns,
+  };
+}
+
+export async function getFeeDueNotices(
+  financialYearStart: number,
+  throughMonth: number,
+  classId?: string,
+): Promise<FeeDueNoticesDto> {
+  const today = new Date();
+  const months = buildFinancialYearMonths(financialYearStart);
+  const monthsThrough = getMonthsThrough(throughMonth);
+  const students = await loadStudents(classId);
+  const paymentRecords = await loadPaymentRecords(
+    financialYearStart,
+    students.map((student) => student.id),
+  );
+  const classes = await loadClasses();
+
+  const notices: FeeDueNotice[] = [];
+
+  for (const student of students) {
+    const payments = buildDetailedPaymentMap(
+      student,
+      financialYearStart,
+      paymentRecords,
+      today,
+    );
+
+    const dueMonths: FeeDueNoticeMonth[] = [];
+    let totalDue = 0;
+
+    for (const month of monthsThrough) {
+      const cell = payments[month];
+      if (!cell || cell.status === "UPCOMING") {
+        continue;
+      }
+
+      const dueAmount = student.class.monthlyFee - cell.amount;
+      if (dueAmount <= 0) {
+        continue;
+      }
+
+      dueMonths.push({
+        month,
+        labelEn: getMonthLabel(month),
+        labelHi: getMonthLabelHi(month),
+        dueAmount,
+      });
+      totalDue += dueAmount;
+    }
+
+    if (totalDue <= 0) {
+      continue;
+    }
+
+    notices.push({
+      studentId: student.id,
+      studentName: student.user.name,
+      rollNumber: student.studentRollNumber,
+      classId: student.classId,
+      className: student.class.className,
+      dueMonths,
+      totalDue,
+    });
+  }
+
+  notices.sort((a, b) => {
+    const classCmp = a.className.localeCompare(b.className);
+    if (classCmp !== 0) {
+      return classCmp;
+    }
+    const rollCmp = a.rollNumber.localeCompare(b.rollNumber, undefined, {
+      numeric: true,
+    });
+    if (rollCmp !== 0) {
+      return rollCmp;
+    }
+    return a.studentName.localeCompare(b.studentName);
+  });
+
+  return {
+    financialYearStart,
+    financialYearLabel: formatFinancialYearLabel(financialYearStart),
+    throughMonth,
+    throughMonthLabelEn: getMonthLabel(throughMonth),
+    throughMonthLabelHi: getMonthLabelHi(throughMonth),
+    schoolName: SCHOOL_NAME,
+    schoolNameHi: SCHOOL_NAME_HI,
+    months,
+    classes,
+    notices,
   };
 }
 
