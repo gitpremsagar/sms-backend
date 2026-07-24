@@ -42,6 +42,12 @@ enum ClassKind {
   COACHING
 }
 
+enum EventFeeKind {
+  EXAMINATION
+  EVENT
+  OTHER
+}
+
 model User {
   id            String         @id @default(auto()) @map("_id") @db.ObjectId
   name          String
@@ -58,6 +64,7 @@ model User {
   notificationsCreated     Notification[]      @relation("NotificationsCreated")
   notificationReads        NotificationRead[]
   feePaymentsUpdated       StudentFeePayment[]
+  eventFeePaymentsUpdated  EventFeePayment[]
   studentAttendancesMarked StudentAttendance[]
 
   @@index([role])
@@ -72,8 +79,9 @@ model Class {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  teacher  TeacherDetail   @relation(fields: [teacherId], references: [id])
-  students StudentDetail[]
+  teacher         TeacherDetail       @relation(fields: [teacherId], references: [id])
+  students        StudentDetail[]
+  eventFeeRates   EventFeeClassRate[]
 
   @@index([teacherId])
   @@index([kind])
@@ -102,8 +110,9 @@ model StudentDetail {
   user         User                @relation(fields: [userId], references: [id])
   class        Class               @relation(fields: [classId], references: [id])
   parents      ParentDetail[]      @relation(fields: [parentIds], references: [id])
-  feePayments  StudentFeePayment[]
-  attendances  StudentAttendance[]
+  feePayments      StudentFeePayment[]
+  eventFeePayments EventFeePayment[]
+  attendances      StudentAttendance[]
 
   @@index([classId])
 }
@@ -236,4 +245,53 @@ model NotificationRead {
 
   @@unique([notificationId, userId])
   @@index([userId])
+}
+
+model EventFee {
+  id                 String       @id @default(auto()) @map("_id") @db.ObjectId
+  title              String
+  kind               EventFeeKind @default(EVENT)
+  financialYearStart Int
+  dueDate            DateTime?
+  notes              String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  classRates EventFeeClassRate[]
+  payments   EventFeePayment[]
+
+  @@index([financialYearStart])
+}
+
+model EventFeeClassRate {
+  id         String @id @default(auto()) @map("_id") @db.ObjectId
+  eventFeeId String @db.ObjectId
+  classId    String @db.ObjectId
+  amount     Float
+
+  eventFee EventFee @relation(fields: [eventFeeId], references: [id], onDelete: Cascade)
+  class    Class    @relation(fields: [classId], references: [id])
+
+  @@unique([eventFeeId, classId])
+  @@index([classId])
+}
+
+model EventFeePayment {
+  id          String           @id @default(auto()) @map("_id") @db.ObjectId
+  eventFeeId  String           @db.ObjectId
+  studentId   String           @db.ObjectId
+  status      FeePaymentStatus @default(UNPAID)
+  amount      Float            @default(0)
+  paymentDate DateTime?
+  updatedById String?          @db.ObjectId
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  eventFee  EventFee      @relation(fields: [eventFeeId], references: [id], onDelete: Cascade)
+  student   StudentDetail @relation(fields: [studentId], references: [id])
+  updatedBy User?         @relation(fields: [updatedById], references: [id])
+
+  @@unique([eventFeeId, studentId])
+  @@index([eventFeeId])
+  @@index([studentId])
 }
