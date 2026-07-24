@@ -51,6 +51,7 @@ export type EventFeePaymentCell = {
   amount: number;
   dueAmount: number;
   paymentDate: string | null;
+  updatedByName: string | null;
 };
 
 export type EventFeeRegisterEvent = {
@@ -324,6 +325,7 @@ function buildPaymentCell(
         status: FeePaymentStatus;
         amount: number;
         paymentDate: Date | null;
+        updatedBy: { name: string } | null;
       }
     | undefined,
 ): EventFeePaymentCell | null {
@@ -331,12 +333,15 @@ function buildPaymentCell(
     return null;
   }
 
+  const updatedByName = payment?.updatedBy?.name ?? null;
+
   if (payment?.status === FeePaymentStatus.PAID) {
     return {
       status: "PAID",
       amount: payment.amount,
       dueAmount: 0,
       paymentDate: toIsoDate(payment.paymentDate),
+      updatedByName,
     };
   }
 
@@ -345,6 +350,7 @@ function buildPaymentCell(
     amount: payment?.amount ?? 0,
     dueAmount: classRate,
     paymentDate: null,
+    updatedByName,
   };
 }
 
@@ -437,6 +443,7 @@ export async function getEventFeeRegister(
             status: true,
             amount: true,
             paymentDate: true,
+            updatedBy: { select: { name: true } },
           },
         });
 
@@ -580,6 +587,7 @@ export async function getEventFeeReport(
             status: true,
             amount: true,
             paymentDate: true,
+            updatedBy: { select: { name: true } },
           },
         });
 
